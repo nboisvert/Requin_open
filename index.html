@@ -695,8 +695,9 @@ function App() {
   const [chatInput, setChatInput]       = useState("");
   const [connected, setConnected]       = useState(false);
   const [toasts, setToasts]             = useState([]);
+  const [lightMode, setLightMode]       = useState(false);
   const chatEndRef   = useRef(null);
-  const prevScores   = useRef({}); // teamId -> scores array snapshot
+  const prevScores   = useRef({});
 
   function addToast(type, hole, score, teamName) {
     const id = generateId();
@@ -894,7 +895,6 @@ function App() {
   }
 
   const isAdmin = userName === "Nick";
-  const [lightMode, setLightMode] = useState(false);
 
   // Theme tokens
   const T = lightMode ? {
@@ -950,7 +950,6 @@ function App() {
             style={{width:34,height:34,borderRadius:"50%",background:lightMode?"rgba(2,132,199,0.1)":"rgba(56,189,248,0.1)",border:`1px solid ${T.border}`,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
             {lightMode?"🌙":"☀️"}
           </button>
-        </div>
         </div>
       </div>
 
