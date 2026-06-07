@@ -356,15 +356,9 @@ function ScoreGroup({ title, holes, scores, onChange, offset, readonly }) {
           const isPar3=h.par===3;
           return (
             <div key={h.hole} style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px",border:hasSc?`1px solid ${lbl.color}40`:isPar3?"1px solid rgba(251,191,36,0.15)":"1px solid rgba(255,255,255,0.06)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                 <span style={{fontSize:11,color:"#64748b",fontWeight:700}}>#{h.hole}{isPar3?" 📍":""}</span>
-                {isPar3?(
-                  <span style={{fontSize:10,color:"#fbbf24",textAlign:"right",lineHeight:1.3}}>
-                    Par 3<br/><span style={{color:"#475569"}}>{h.yards}y</span>
-                  </span>
-                ):(
-                  <span style={{fontSize:10,color:"#475569"}}>Par {h.par} · {h.yards}y</span>
-                )}
+                <span style={{fontSize:10,color:isPar3?"#fbbf24":"#475569"}}>Par {h.par} · {h.yards}y</span>
               </div>
               {readonly?(
                 <div style={{fontSize:22,fontWeight:900,color:hasSc?lbl.color:"#2d3f55",textAlign:"center"}}>{hasSc?val:"—"}</div>
@@ -481,7 +475,90 @@ function ToastContainer({ toasts, onDismiss }) {
   );
 }
 
-// ─── MAIN ────────────────────────────────────────────────────────────────────
+// ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
+function AdminPanel({ onResetGame, onResetAll }) {
+  const [confirmMode, setConfirmMode] = useState(null); // null | 'game' | 'all'
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+        <span style={{fontSize:28}}>🔐</span>
+        <div>
+          <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:"#f0f9ff",margin:0}}>ADMIN</h2>
+          <p style={{color:"#475569",fontSize:11,letterSpacing:2,marginTop:2}}>ACCÈS RESTREINT · NICK ONLY</p>
+        </div>
+      </div>
+
+      {/* Reset game */}
+      <div style={{background:"rgba(249,115,22,0.06)",border:"1px solid rgba(249,115,22,0.25)",borderRadius:14,padding:20,marginBottom:12}}>
+        <div style={{marginBottom:10}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#fb923c",letterSpacing:1,marginBottom:4}}>
+            🔄 RESETTER LA PARTIE
+          </div>
+          <p style={{fontSize:13,color:"#94a3b8",lineHeight:1.5}}>
+            Efface les scores, nearest pin et messages.<br/>
+            <strong style={{color:"#fb923c"}}>Les équipes et joueurs sont conservés.</strong>
+          </p>
+        </div>
+        {confirmMode==="game" ? (
+          <div>
+            <p style={{color:"#fbbf24",fontSize:13,fontWeight:700,marginBottom:10}}>⚠️ Es-tu certain? Cette action est irréversible.</p>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{onResetGame();setConfirmMode(null);}}
+                style={{flex:1,padding:"10px",background:"rgba(249,115,22,0.3)",border:"1px solid #f97316",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900,letterSpacing:1}}>
+                ✓ OUI, RESETTER
+              </button>
+              <button onClick={()=>setConfirmMode(null)}
+                style={{padding:"10px 16px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#64748b",cursor:"pointer",fontSize:13}}>
+                ANNULER
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={()=>setConfirmMode("game")}
+            style={{padding:"10px 20px",background:"rgba(249,115,22,0.2)",border:"1px solid rgba(249,115,22,0.4)",borderRadius:8,color:"#fb923c",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,letterSpacing:1}}>
+            RESETTER LA PARTIE →
+          </button>
+        )}
+      </div>
+
+      {/* Reset all */}
+      <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:20}}>
+        <div style={{marginBottom:10}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:4}}>
+            💀 TOUT EFFACER
+          </div>
+          <p style={{fontSize:13,color:"#94a3b8",lineHeight:1.5}}>
+            Efface absolument tout — scores, équipes, joueurs, messages, nearest pin.<br/>
+            <strong style={{color:"#f87171"}}>Retour à zéro complet.</strong>
+          </p>
+        </div>
+        {confirmMode==="all" ? (
+          <div>
+            <p style={{color:"#fbbf24",fontSize:13,fontWeight:700,marginBottom:10}}>⚠️ VRAIMENT TOUT EFFACER? Impossible d'annuler.</p>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{onResetAll();setConfirmMode(null);}}
+                style={{flex:1,padding:"10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900,letterSpacing:1}}>
+                💀 OUI, TOUT EFFACER
+              </button>
+              <button onClick={()=>setConfirmMode(null)}
+                style={{padding:"10px 16px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#64748b",cursor:"pointer",fontSize:13}}>
+                ANNULER
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={()=>setConfirmMode("all")}
+            style={{padding:"10px 20px",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:8,color:"#f87171",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,letterSpacing:1}}>
+            TOUT EFFACER →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const [rawState, setRawState] = useState(null);
   const [userName, setUserName]   = useState(() => localStorage.getItem("rq-username")||"");
@@ -609,11 +686,30 @@ function App() {
     setChatInput("");
   }
 
+  async function resetGame() {
+    await fbRemove("nearestPin");
+    await fbRemove("messages");
+    // Reset all team scores
+    const { teams=[] } = rawState||{};
+    for (const team of teams) {
+      await fbSet(`teams/${team.id}/scores`, Array(18).fill(""));
+    }
+  }
+
+  async function resetAll() {
+    await db.ref(ROOT).remove();
+    localStorage.removeItem("rq-username");
+    setUserName("");
+  }
+
+  const isAdmin = userName === "Nick";
+
   const navItems = [
     { id:"board",     label:"Tableau",  emoji:"🏆" },
     { id:"teams",     label:"Équipes",  emoji:"⛳" },
     { id:"scorecard", label:myTeam?"Ma carte":"Scores", emoji:"📋" },
     { id:"chat",      label:"Trash",    emoji:"🦈" },
+    ...(isAdmin ? [{ id:"admin", label:"Admin", emoji:"🔐" }] : []),
   ];
 
   return (
@@ -630,7 +726,7 @@ function App() {
             <div style={{fontSize:10,color:"#475569",letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
           </div>
           <div style={{background:"rgba(56,189,248,0.12)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.1</span>
+            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.2</span>
           </div>
         </div>
         <div style={{textAlign:"right"}}>
@@ -641,6 +737,11 @@ function App() {
 
       {/* CONTENT */}
       <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px",animation:"fadeIn 0.3s ease"}}>
+
+        {/* ADMIN */}
+        {view==="admin"&&isAdmin&&(
+          <AdminPanel onResetGame={resetGame} onResetAll={resetAll}/>
+        )}
 
         {/* BOARD */}
         {view==="board"&&(
