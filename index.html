@@ -203,12 +203,12 @@ function NearestPinEditor({ teams, onSave, onCancel }) {
       {team&&(
         <select value={selMember} onChange={e=>setSelMember(e.target.value)}
           style={{padding:"6px 8px",background:"#0f2137",border:"1px solid rgba(56,189,248,0.3)",borderRadius:6,color:"#fff",fontSize:13,fontFamily:"'Barlow Condensed',sans-serif"}}>
-          <option value="">-- Joueur --</option>
+          <option value="">-- Joueur (optionnel) --</option>
           {(team.members||[]).map(m=><option key={m} value={m}>{m}</option>)}
         </select>
       )}
       <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>selTeamId&&selMember&&onSave(selMember,selTeamId,team?.name)}
+        <button onClick={()=>selTeamId&&onSave(selMember||null, selTeamId, team?.name)}
           style={{flex:1,padding:"6px",background:"rgba(251,191,36,0.2)",border:"1px solid rgba(251,191,36,0.4)",borderRadius:6,color:"#fbbf24",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>
           ✓ SAUVER
         </button>
@@ -224,7 +224,10 @@ function NearestPinSection({ teams, nearestPin, canEdit, onUpdate }) {
   const winnings = {};
   PAR3_HOLES.forEach(h => {
     const e = np[h.hole];
-    if (e?.winner) winnings[e.winner] = (winnings[e.winner]||0) + NEAREST_PIN_PRIZE;
+    if (e?.teamName) {
+      const key = e.winner || e.teamName;
+      winnings[key] = (winnings[key]||0) + NEAREST_PIN_PRIZE;
+    }
   });
 
   return (
@@ -246,10 +249,10 @@ function NearestPinSection({ teams, nearestPin, canEdit, onUpdate }) {
               </div>
               {isEditing?(
                 <NearestPinEditor teams={teams} onSave={(w,tid,tn)=>{onUpdate(h.hole,w,tid,tn);setEditing(null);}} onCancel={()=>setEditing(null)}/>
-              ):entry?.winner?(
+              ):entry?.teamName?(
                 <div>
-                  <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>🏆 {entry.winner}</div>
-                  <div style={{fontSize:11,color:"#fbbf24",marginTop:2}}>{entry.teamName} · {NEAREST_PIN_PRIZE}$</div>
+                  <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>🏆 {entry.winner||entry.teamName}</div>
+                  <div style={{fontSize:11,color:"#fbbf24",marginTop:2}}>{entry.winner?entry.teamName+" · ":""}{NEAREST_PIN_PRIZE}$</div>
                   {canEdit&&<button onClick={()=>setEditing(h.hole)} style={{marginTop:6,fontSize:10,color:"#475569",background:"none",border:"none",cursor:"pointer",padding:0,letterSpacing:1}}>✏️ modifier</button>}
                 </div>
               ):(
@@ -442,42 +445,54 @@ const TOAST_CONFIGS = {
 };
 
 function ToastContainer({ toasts, onDismiss }) {
+  if (!toasts.length) return null;
   return (
-    <div style={{position:"fixed",top:80,left:0,right:0,zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",gap:8,pointerEvents:"none"}}>
-      {toasts.map(t=>(
-        <div key={t.id} onClick={()=>onDismiss(t.id)}
-          style={{
-            pointerEvents:"all",
-            background:TOAST_CONFIGS[t.type]?.bg||"rgba(56,189,248,0.95)",
-            border:`2px solid ${TOAST_CONFIGS[t.type]?.border||"#38bdf8"}`,
-            borderRadius:16, padding:"12px 20px",
-            display:"flex", alignItems:"center", gap:12,
-            boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
-            animation: t.fading ? "toastOut 0.4s ease forwards" : "toastIn 0.3s ease",
-            maxWidth:340, cursor:"pointer"
-          }}>
-          <span style={{fontSize:28}}>{TOAST_CONFIGS[t.type]?.icon||"⛳"}</span>
-          <div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:"#fff",letterSpacing:2}}>
-              {TOAST_CONFIGS[t.type]?.label} — Trou #{t.hole}
+    <>
+      {/* Invisible overlay — click anywhere outside a toast to dismiss all */}
+      <div onClick={()=>toasts.forEach(t=>onDismiss(t.id))}
+        style={{position:"fixed",inset:0,zIndex:998,pointerEvents:"all"}}/>
+      <div style={{position:"fixed",top:80,left:0,right:0,zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",gap:8,pointerEvents:"none"}}>
+        {toasts.map(t=>(
+          <div key={t.id} onClick={e=>{e.stopPropagation();onDismiss(t.id);}}
+            style={{
+              pointerEvents:"all",
+              background:TOAST_CONFIGS[t.type]?.bg||"rgba(56,189,248,0.95)",
+              border:`2px solid ${TOAST_CONFIGS[t.type]?.border||"#38bdf8"}`,
+              borderRadius:16, padding:"12px 20px",
+              display:"flex", alignItems:"center", gap:12,
+              boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
+              animation: t.fading ? "toastOut 0.4s ease forwards" : "toastIn 0.3s ease",
+              maxWidth:340, cursor:"pointer"
+            }}>
+            <span style={{fontSize:28}}>{TOAST_CONFIGS[t.type]?.icon||"⛳"}</span>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:"#fff",letterSpacing:2}}>
+                {TOAST_CONFIGS[t.type]?.label} — Trou #{t.hole}
+              </div>
+              <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:1}}>
+                {t.teamName} · {t.score} coups
+              </div>
             </div>
-            <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:1}}>
-              {t.teamName} · {t.score} coups
-            </div>
+            <span style={{fontSize:16,color:"rgba(255,255,255,0.5)"}}>✕</span>
           </div>
-        </div>
-      ))}
-      <style>{`
-        @keyframes toastIn  { from{opacity:0;transform:translateY(-16px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
-        @keyframes toastOut { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(0.9)} }
-      `}</style>
-    </div>
+        ))}
+        <style>{`
+          @keyframes toastIn  { from{opacity:0;transform:translateY(-16px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+          @keyframes toastOut { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(0.9)} }
+        `}</style>
+      </div>
+    </>
   );
 }
 
 // ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
-function AdminPanel({ onResetGame, onResetAll }) {
-  const [confirmMode, setConfirmMode] = useState(null); // null | 'game' | 'all'
+function AdminPanel({ teams, onResetGame, onResetAll, onDeleteMember }) {
+  const [confirmMode, setConfirmMode] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // {teamId, member}
+
+  // Build flat list of all members across all teams
+  const allMembers = [];
+  teams.forEach(t => (t.members||[]).forEach(m => allMembers.push({ member:m, team:t })));
 
   return (
     <div>
@@ -489,7 +504,39 @@ function AdminPanel({ onResetGame, onResetAll }) {
         </div>
       </div>
 
-      {/* Reset game */}
+      {/* Delete member */}
+      <div style={{background:"rgba(56,189,248,0.05)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:14,padding:20,marginBottom:12}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#38bdf8",letterSpacing:1,marginBottom:12}}>
+          👤 GÉRER LES MEMBRES
+        </div>
+        {allMembers.length===0&&<p style={{color:"#475569",fontSize:13}}>Aucun membre pour l'instant.</p>}
+        {allMembers.map(({member,team})=>(
+          <div key={`${team.id}-${member}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+            <div>
+              <span style={{color:"#e2e8f0",fontSize:15,fontWeight:600}}>{member}</span>
+              {team.creator===member&&<span style={{marginLeft:6,fontSize:10,color:"#fbbf24",letterSpacing:1}}>CAPT.</span>}
+              <div style={{fontSize:11,color:"#475569"}}>{team.name}</div>
+            </div>
+            {confirmDelete?.member===member&&confirmDelete?.teamId===team.id ? (
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>{onDeleteMember(team,member);setConfirmDelete(null);}}
+                  style={{padding:"5px 10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                  SUPPR.
+                </button>
+                <button onClick={()=>setConfirmDelete(null)}
+                  style={{padding:"5px 8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,color:"#64748b",cursor:"pointer",fontSize:12}}>
+                  ✕
+                </button>
+              </div>
+            ):(
+              <button onClick={()=>setConfirmDelete({teamId:team.id,member})}
+                style={{padding:"5px 12px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:6,color:"#f87171",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+                RETIRER
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
       <div style={{background:"rgba(249,115,22,0.06)",border:"1px solid rgba(249,115,22,0.25)",borderRadius:14,padding:20,marginBottom:12}}>
         <div style={{marginBottom:10}}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#fb923c",letterSpacing:1,marginBottom:4}}>
@@ -574,9 +621,9 @@ function App() {
   function addToast(type, hole, score, teamName) {
     const id = generateId();
     setToasts(t=>[...t, { id, type, hole, score, teamName, fading:false }]);
-    // Start fade after 3.5s, remove after 4s
-    setTimeout(()=> setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x)), 3500);
-    setTimeout(()=> setToasts(t=>t.filter(x=>x.id!==id)), 4000);
+    // Start fade after 14.5s, remove after 15s
+    setTimeout(()=> setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x)), 14500);
+    setTimeout(()=> setToasts(t=>t.filter(x=>x.id!==id)), 15000);
   }
 
   function dismissToast(id) {
@@ -686,6 +733,16 @@ function App() {
     setChatInput("");
   }
 
+  async function deleteMember(team, member) {
+    if (team.creator===member) {
+      // Creator leaving = delete the whole team
+      await fbRemove(`teams/${team.id}`);
+    } else {
+      const members = (team.members||[]).filter(m=>m!==member);
+      await fbSet(`teams/${team.id}/members`, members);
+    }
+  }
+
   async function resetGame() {
     await fbRemove("nearestPin");
     await fbRemove("messages");
@@ -726,7 +783,7 @@ function App() {
             <div style={{fontSize:10,color:"#475569",letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
           </div>
           <div style={{background:"rgba(56,189,248,0.12)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.2</span>
+            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.3</span>
           </div>
         </div>
         <div style={{textAlign:"right"}}>
@@ -740,7 +797,7 @@ function App() {
 
         {/* ADMIN */}
         {view==="admin"&&isAdmin&&(
-          <AdminPanel onResetGame={resetGame} onResetAll={resetAll}/>
+          <AdminPanel teams={teams} onResetGame={resetGame} onResetAll={resetAll} onDeleteMember={deleteMember}/>
         )}
 
         {/* BOARD */}
