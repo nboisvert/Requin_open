@@ -8,9 +8,9 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0a1628; }
@@ -21,23 +21,21 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
     select option { background: #0f2137; }
-    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-    @keyframes wave { from{transform:scaleX(1) translateY(0)} to{transform:scaleX(1.05) translateY(-20px)} }
+    input::placeholder { color: #334155; }
+    @keyframes spin  { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
+    @keyframes wave  { from{transform:scaleX(1) translateY(0)} to{transform:scaleX(1.05) translateY(-20px)} }
     @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
     @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    input::placeholder { color: #334155; }
-    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap');
+    @keyframes toastIn  { from{opacity:0;transform:translateY(-16px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes toastOut { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(0.9)} }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet"/>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
-// ─── FIREBASE CONFIG ────────────────────────────────────────────────────────
-// 👇 REMPLACE CES VALEURS PAR TA CONFIG FIREBASE
+// ─── FIREBASE ────────────────────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyDcMhSpvKRrgIRNB_1I-iCN3OLFWPKI8K0",
   authDomain: "requinopen.firebaseapp.com",
@@ -47,60 +45,36 @@ const firebaseConfig = {
   messagingSenderId: "151123063839",
   appId: "1:151123063839:web:88ab62907cb9e3beb7512a"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const ROOT = "requin-open-v1";
 
-// ─── STORAGE (Firebase Realtime DB) ─────────────────────────────────────────
 function subscribeState(callback) {
   const ref = db.ref(ROOT);
-  ref.on("value", snap => {
-    const val = snap.val();
-    callback(val || { teams: {}, messages: {}, nearestPin: {} });
-  });
+  ref.on("value", snap => callback(snap.val() || {}));
   return () => ref.off();
 }
-
-async function fbSet(path, value) {
-  await db.ref(`${ROOT}/${path}`).set(value);
-}
-async function fbUpdate(path, value) {
-  await db.ref(`${ROOT}/${path}`).update(value);
-}
-async function fbPush(path, value) {
-  await db.ref(`${ROOT}/${path}`).push(value);
-}
-async function fbRemove(path) {
-  await db.ref(`${ROOT}/${path}`).remove();
-}
+async function fbSet(path, value)    { await db.ref(`${ROOT}/${path}`).set(value); }
+async function fbPush(path, value)   { await db.ref(`${ROOT}/${path}`).push(value); }
+async function fbRemove(path)        { await db.ref(`${ROOT}/${path}`).remove(); }
 
 // ─── COURSE DATA ─────────────────────────────────────────────────────────────
 const LAC_MEGANTIC_HOLES = [
-  { hole:1,  par:5, yards:472 },
-  { hole:2,  par:3, yards:171 },
-  { hole:3,  par:5, yards:519 },
-  { hole:4,  par:4, yards:330 },
-  { hole:5,  par:5, yards:501 },
-  { hole:6,  par:3, yards:162 },
-  { hole:7,  par:4, yards:326 },
-  { hole:8,  par:3, yards:178 },
-  { hole:9,  par:4, yards:350 },
-  { hole:10, par:4, yards:365 },
-  { hole:11, par:4, yards:419 },
-  { hole:12, par:3, yards:155 },
-  { hole:13, par:4, yards:390 },
-  { hole:14, par:4, yards:364 },
-  { hole:15, par:5, yards:515 },
-  { hole:16, par:4, yards:460 },
-  { hole:17, par:4, yards:324 },
-  { hole:18, par:4, yards:385 },
+  { hole:1,  par:5, yards:472 }, { hole:2,  par:3, yards:171 },
+  { hole:3,  par:5, yards:519 }, { hole:4,  par:4, yards:330 },
+  { hole:5,  par:5, yards:501 }, { hole:6,  par:3, yards:162 },
+  { hole:7,  par:4, yards:326 }, { hole:8,  par:3, yards:178 },
+  { hole:9,  par:4, yards:350 }, { hole:10, par:4, yards:365 },
+  { hole:11, par:4, yards:419 }, { hole:12, par:3, yards:155 },
+  { hole:13, par:4, yards:390 }, { hole:14, par:4, yards:364 },
+  { hole:15, par:5, yards:515 }, { hole:16, par:4, yards:460 },
+  { hole:17, par:4, yards:324 }, { hole:18, par:4, yards:385 },
 ];
-const PAR3_HOLES = LAC_MEGANTIC_HOLES.filter(h => h.par === 3);
-const TOTAL_PAR = LAC_MEGANTIC_HOLES.reduce((s,h) => s+h.par, 0);
+const PAR3_HOLES  = LAC_MEGANTIC_HOLES.filter(h => h.par === 3);
+const TOTAL_PAR   = LAC_MEGANTIC_HOLES.reduce((s,h) => s+h.par, 0);
 const NEAREST_PIN_PRIZE = 50;
 const TRASH_TALK_EMOJIS = ["🦈","🏌️","⛳","🔥","💀","👀","🎯","💪"];
-const SHARK_EMOJIS = ["🦈","🌊","⚡","🏆","🎖️","👑"];
+const SHARK_EMOJIS      = ["🦈","🌊","⚡","🏆","🎖️","👑"];
 
 function generateId() { return Math.random().toString(36).slice(2,9); }
 
@@ -126,13 +100,43 @@ function getStats(scores) {
   return { diff:total, holesPlayed, eagles, birdies, pars, bogeys, doubles, pires };
 }
 
-function formatScore(d) {
-  if (d===0) return "E";
-  return d>0?`+${d}`:`${d}`;
+function formatScore(d) { return d===0?"E":d>0?`+${d}`:`${d}`; }
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+const TOAST_CONFIGS = {
+  eagle:  { bg:"rgba(245,158,11,0.95)",  border:"#f59e0b", icon:"🦅", label:"EAGLE!"      },
+  birdie: { bg:"rgba(34,197,94,0.95)",   border:"#22c55e", icon:"🐦", label:"BIRDIE!"     },
+  bogey:  { bg:"rgba(249,115,22,0.9)",   border:"#f97316", icon:"😬", label:"BOGEY"       },
+  double: { bg:"rgba(239,68,68,0.9)",    border:"#ef4444", icon:"💀", label:"DOUBLE!"     },
+  pire:   { bg:"rgba(220,38,38,0.9)",    border:"#dc2626", icon:"🔥", label:"AU SECOURS!" },
+};
+
+function ToastContainer({ toasts, onDismiss }) {
+  if (!toasts.length) return null;
+  return (
+    <>
+      <div onClick={()=>toasts.forEach(t=>onDismiss(t.id))}
+        style={{position:"fixed",inset:0,zIndex:998,pointerEvents:"all"}}/>
+      <div style={{position:"fixed",top:80,left:0,right:0,zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",gap:8,pointerEvents:"none"}}>
+        {toasts.map(t=>(
+          <div key={t.id} onClick={e=>{e.stopPropagation();onDismiss(t.id);}}
+            style={{pointerEvents:"all",background:TOAST_CONFIGS[t.type]?.bg,border:`2px solid ${TOAST_CONFIGS[t.type]?.border}`,borderRadius:16,padding:"12px 20px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 8px 32px rgba(0,0,0,0.5)",animation:t.fading?"toastOut 0.4s ease forwards":"toastIn 0.3s ease",maxWidth:340,cursor:"pointer"}}>
+            <span style={{fontSize:28}}>{TOAST_CONFIGS[t.type]?.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:"#fff",letterSpacing:2}}>
+                {TOAST_CONFIGS[t.type]?.label} — Trou #{t.hole}
+              </div>
+              <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:1}}>{t.teamName} · {t.score} coups</div>
+            </div>
+            <span style={{fontSize:16,color:"rgba(255,255,255,0.5)"}}>✕</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
 }
 
-// ─── COMPONENTS ──────────────────────────────────────────────────────────────
-
+// ─── SPINNER ─────────────────────────────────────────────────────────────────
 function Spinner() {
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a1628"}}>
@@ -144,24 +148,20 @@ function Spinner() {
   );
 }
 
+// ─── ENTRY SCREEN ────────────────────────────────────────────────────────────
 function EntryScreen({ onEnter, teams }) {
-  const [name, setName] = useState("");
-  const [shake, setShake] = useState(false);
-  const [step, setStep] = useState("name"); // "name" | "team"
+  const [name, setName]           = useState("");
+  const [shake, setShake]         = useState(false);
+  const [step, setStep]           = useState("name");
   const [newTeamName, setNewTeamName] = useState("");
-  const [mode, setMode] = useState(null); // null | "join" | "create"
 
   function handleNameNext() {
     if (!name.trim()) { setShake(true); setTimeout(()=>setShake(false),500); return; }
     setStep("team");
   }
-
-  function handleSkip() { onEnter(name.trim(), null, null); }
-  function handleJoinTeam(team) { onEnter(name.trim(), "join", team); }
-  function handleCreateTeam() {
-    if (!newTeamName.trim()) return;
-    onEnter(name.trim(), "create", newTeamName.trim());
-  }
+  function handleSkip()          { onEnter(name.trim(), null, null); }
+  function handleJoinTeam(team)  { onEnter(name.trim(), "join", team); }
+  function handleCreateTeam()    { if (!newTeamName.trim()) return; onEnter(name.trim(), "create", newTeamName.trim()); }
 
   return (
     <div style={{minHeight:"100vh",background:"#0a1628",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",overflow:"hidden",position:"relative",padding:"0 24px"}}>
@@ -170,7 +170,6 @@ function EntryScreen({ onEnter, teams }) {
           <div key={i} style={{position:"absolute",bottom:`${i*12}%`,left:"-20%",right:"-20%",height:200,borderRadius:"50%",border:"2px solid #38bdf8",animation:`wave ${3+i*0.5}s ease-in-out infinite alternate`,animationDelay:`${i*0.3}s`}}/>
         ))}
       </div>
-
       <div style={{position:"relative",zIndex:1,textAlign:"center",maxWidth:480,width:"100%"}}>
         <div style={{marginBottom:8}}><span style={{fontSize:80,filter:"drop-shadow(0 0 30px #38bdf8)"}}>🦈</span></div>
         <h1 style={{fontSize:"clamp(52px,12vw,96px)",fontWeight:900,letterSpacing:2,margin:0,lineHeight:0.9,background:"linear-gradient(135deg,#38bdf8 0%,#fff 50%,#7dd3fc 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",textTransform:"uppercase"}}>REQUIN<br/>OPEN</h1>
@@ -194,9 +193,7 @@ function EntryScreen({ onEnter, teams }) {
               <div style={{fontSize:22,fontWeight:900,color:"#38bdf8"}}>Salut {name}! 🦈</div>
               <div style={{fontSize:13,color:"#64748b",marginTop:4}}>Rejoins ou crée une équipe</div>
             </div>
-
-            {/* Join existing teams */}
-            {teams.length>0 && (
+            {teams.length>0&&(
               <div style={{marginBottom:16}}>
                 <p style={{color:"#94a3b8",fontSize:11,letterSpacing:2,margin:"0 0 10px"}}>ÉQUIPES EXISTANTES</p>
                 {teams.map(t=>(
@@ -211,23 +208,17 @@ function EntryScreen({ onEnter, teams }) {
                 ))}
               </div>
             )}
-
-            {/* Divider */}
             <div style={{display:"flex",alignItems:"center",gap:10,margin:"16px 0"}}>
               <div style={{flex:1,height:1,background:"rgba(255,255,255,0.08)"}}/>
               <span style={{color:"#334155",fontSize:12,letterSpacing:2}}>OU</span>
               <div style={{flex:1,height:1,background:"rgba(255,255,255,0.08)"}}/>
             </div>
-
-            {/* Create team */}
             <p style={{color:"#94a3b8",fontSize:11,letterSpacing:2,margin:"0 0 8px"}}>CRÉER UNE ÉQUIPE</p>
             <div style={{display:"flex",gap:8,marginBottom:16}}>
               <input value={newTeamName} onChange={e=>setNewTeamName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleCreateTeam()} placeholder="Nom de l'équipe..."
                 style={{flex:1,padding:"11px 14px",fontSize:15,fontWeight:700,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:8,color:"#fff",outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}}/>
               <button onClick={handleCreateTeam} style={{padding:"11px 16px",background:"linear-gradient(135deg,#0ea5e9,#0284c7)",border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>CRÉER</button>
             </div>
-
-            {/* Skip */}
             <button onClick={handleSkip} style={{width:"100%",padding:"10px",background:"none",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,color:"#475569",cursor:"pointer",fontSize:12,letterSpacing:2,fontFamily:"'Barlow Condensed',sans-serif"}}>
               CONTINUER SANS ÉQUIPE
             </button>
@@ -238,6 +229,7 @@ function EntryScreen({ onEnter, teams }) {
   );
 }
 
+// ─── STAT PILL ───────────────────────────────────────────────────────────────
 function StatPill({ emoji, count, color, label }) {
   if (!count) return null;
   return (
@@ -251,6 +243,7 @@ function StatPill({ emoji, count, color, label }) {
   );
 }
 
+// ─── NEAREST PIN ─────────────────────────────────────────────────────────────
 function NearestPinEditor({ teams, onSave, onCancel }) {
   const [selTeamId, setSelTeamId] = useState("");
   const [selMember, setSelMember] = useState("");
@@ -270,7 +263,7 @@ function NearestPinEditor({ teams, onSave, onCancel }) {
         </select>
       )}
       <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>selTeamId&&onSave(selMember||null, selTeamId, team?.name)}
+        <button onClick={()=>selTeamId&&onSave(selMember||null,selTeamId,team?.name)}
           style={{flex:1,padding:"6px",background:"rgba(251,191,36,0.2)",border:"1px solid rgba(251,191,36,0.4)",borderRadius:6,color:"#fbbf24",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>
           ✓ SAUVER
         </button>
@@ -282,16 +275,12 @@ function NearestPinEditor({ teams, onSave, onCancel }) {
 
 function NearestPinSection({ teams, nearestPin, canEdit, onUpdate }) {
   const [editing, setEditing] = useState(null);
-  const np = nearestPin || {};
+  const np = nearestPin||{};
   const winnings = {};
   PAR3_HOLES.forEach(h => {
     const e = np[h.hole];
-    if (e?.teamName) {
-      const key = e.winner || e.teamName;
-      winnings[key] = (winnings[key]||0) + NEAREST_PIN_PRIZE;
-    }
+    if (e?.teamName) { const k=e.winner||e.teamName; winnings[k]=(winnings[k]||0)+NEAREST_PIN_PRIZE; }
   });
-
   return (
     <div style={{marginTop:28}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
@@ -301,10 +290,9 @@ function NearestPinSection({ teams, nearestPin, canEdit, onUpdate }) {
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:16}}>
         {PAR3_HOLES.map(h=>{
-          const entry=np[h.hole];
-          const isEditing=editing===h.hole;
+          const entry=np[h.hole], isEditing=editing===h.hole;
           return (
-            <div key={h.hole} style={{background:entry?.winner?"rgba(251,191,36,0.08)":"rgba(255,255,255,0.02)",border:entry?.winner?"1px solid rgba(251,191,36,0.3)":"1px solid rgba(255,255,255,0.07)",borderRadius:12,padding:"12px 14px"}}>
+            <div key={h.hole} style={{background:entry?.teamName?"rgba(251,191,36,0.08)":"rgba(255,255,255,0.02)",border:entry?.teamName?"1px solid rgba(251,191,36,0.3)":"1px solid rgba(255,255,255,0.07)",borderRadius:12,padding:"12px 14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:700,color:"#fbbf24"}}>Trou {h.hole}</span>
                 <span style={{fontSize:10,color:"#475569"}}>Par 3 · {h.yards}y</span>
@@ -315,7 +303,7 @@ function NearestPinSection({ teams, nearestPin, canEdit, onUpdate }) {
                 <div>
                   <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>🏆 {entry.winner||entry.teamName}</div>
                   <div style={{fontSize:11,color:"#fbbf24",marginTop:2}}>{entry.winner?entry.teamName+" · ":""}{NEAREST_PIN_PRIZE}$</div>
-                  {canEdit&&<button onClick={()=>setEditing(h.hole)} style={{marginTop:6,fontSize:10,color:"#475569",background:"none",border:"none",cursor:"pointer",padding:0,letterSpacing:1}}>✏️ modifier</button>}
+                  {canEdit&&<button onClick={()=>setEditing(h.hole)} style={{marginTop:6,fontSize:10,color:"#475569",background:"none",border:"none",cursor:"pointer",padding:0}}>✏️ modifier</button>}
                 </div>
               ):(
                 <div>
@@ -346,24 +334,20 @@ function NearestPinSection({ teams, nearestPin, canEdit, onUpdate }) {
   );
 }
 
+// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
 function Leaderboard({ teams, nearestPin, canEdit, onUpdateNP }) {
-  const ranked = [...teams].map(t=>{
-    const stats=getStats(t.scores||[]);
-    return {...t,...stats};
-  }).sort((a,b)=>{
-    if (!a.holesPlayed&&!b.holesPlayed) return 0;
-    if (!a.holesPlayed) return 1;
-    if (!b.holesPlayed) return -1;
-    return a.diff-b.diff;
-  });
-
+  const ranked = [...teams].map(t=>({...t,...getStats(t.scores||[])}))
+    .sort((a,b)=>{
+      if (!a.holesPlayed&&!b.holesPlayed) return 0;
+      if (!a.holesPlayed) return 1; if (!b.holesPlayed) return -1;
+      return a.diff-b.diff;
+    });
   if (!ranked.length) return (
     <div style={{textAlign:"center",padding:"40px 20px",color:"#475569"}}>
       <div style={{fontSize:48}}>⛳</div>
       <p style={{fontSize:14,letterSpacing:2,marginTop:12}}>AUCUNE ÉQUIPE POUR L'INSTANT</p>
     </div>
   );
-
   return (
     <div>
       {ranked.map((team,idx)=>{
@@ -375,9 +359,7 @@ function Leaderboard({ teams, nearestPin, canEdit, onUpdateNP }) {
               <div style={{fontSize:26,minWidth:32,textAlign:"center"}}>{idx===0&&team.holesPlayed>0?"🏆":`${idx+1}`}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:900,fontSize:18,color:"#f0f9ff",letterSpacing:1}}>{emoji} {team.name}</div>
-                <div style={{fontSize:11,color:"#475569",letterSpacing:1,marginTop:1}}>
-                  {(team.members||[]).join(", ")||"Aucun membre"} · {team.holesPlayed}/18 trous
-                </div>
+                <div style={{fontSize:11,color:"#475569",letterSpacing:1,marginTop:1}}>{(team.members||[]).join(", ")||"Aucun membre"} · {team.holesPlayed}/18 trous</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:30,fontWeight:900,color:team.diff<0?"#22c55e":team.diff>0?"#f97316":"#94a3b8",fontFamily:"'Barlow Condensed',sans-serif"}}>
@@ -403,10 +385,11 @@ function Leaderboard({ teams, nearestPin, canEdit, onUpdateNP }) {
   );
 }
 
+// ─── SCORECARD ───────────────────────────────────────────────────────────────
 function ScoreGroup({ title, holes, scores, onChange, offset, readonly }) {
-  const groupPar  = holes.reduce((s,h)=>s+h.par,0);
-  const groupScore= holes.reduce((s,h,i)=>{ const v=scores[offset+i]; return v!==""&&v!=null?s+Number(v):s; },0);
-  const groupDiff = holes.reduce((s,h,i)=>{ const v=scores[offset+i]; return v!==""&&v!=null?s+Number(v)-h.par:s; },0);
+  const groupPar   = holes.reduce((s,h)=>s+h.par,0);
+  const groupScore = holes.reduce((s,h,i)=>{ const v=scores[offset+i]; return v!==""&&v!=null?s+Number(v):s; },0);
+  const groupDiff  = holes.reduce((s,h,i)=>{ const v=scores[offset+i]; return v!==""&&v!=null?s+Number(v)-h.par:s; },0);
   return (
     <div style={{marginBottom:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
@@ -444,9 +427,9 @@ function ScoreGroup({ title, holes, scores, onChange, offset, readonly }) {
 }
 
 function ScoreCard({ team, onUpdate, readonly }) {
-  const scores = team.scores || Array(18).fill("");
+  const scores = team.scores||Array(18).fill("");
   function handleChange(idx, val) {
-    const cleaned = val===""?"":Math.max(1,parseInt(val)||1);
+    const cleaned=val===""?"":Math.max(1,parseInt(val)||1);
     const next=[...scores]; next[idx]=cleaned===""?"":Number(cleaned);
     onUpdate(next);
   }
@@ -481,6 +464,7 @@ function ScoreCard({ team, onUpdate, readonly }) {
   );
 }
 
+// ─── CHAT ────────────────────────────────────────────────────────────────────
 function ChatBubble({ msg, isMe }) {
   return (
     <div style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:8,marginBottom:12,alignItems:"flex-end"}}>
@@ -497,66 +481,15 @@ function ChatBubble({ msg, isMe }) {
   );
 }
 
-// ─── TOAST NOTIFICATIONS ─────────────────────────────────────────────────────
-const TOAST_CONFIGS = {
-  eagle:  { bg:"rgba(245,158,11,0.95)",  border:"#f59e0b", icon:"🦅", label:"EAGLE!"   },
-  birdie: { bg:"rgba(34,197,94,0.95)",   border:"#22c55e", icon:"🐦", label:"BIRDIE!"  },
-  bogey:  { bg:"rgba(249,115,22,0.9)",   border:"#f97316", icon:"😬", label:"BOGEY"    },
-  double: { bg:"rgba(239,68,68,0.9)",    border:"#ef4444", icon:"💀", label:"DOUBLE!"  },
-  pire:   { bg:"rgba(220,38,38,0.9)",    border:"#dc2626", icon:"🔥", label:"AU SECOURS!" },
-};
-
-function ToastContainer({ toasts, onDismiss }) {
-  if (!toasts.length) return null;
-  return (
-    <>
-      {/* Invisible overlay — click anywhere outside a toast to dismiss all */}
-      <div onClick={()=>toasts.forEach(t=>onDismiss(t.id))}
-        style={{position:"fixed",inset:0,zIndex:998,pointerEvents:"all"}}/>
-      <div style={{position:"fixed",top:80,left:0,right:0,zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",gap:8,pointerEvents:"none"}}>
-        {toasts.map(t=>(
-          <div key={t.id} onClick={e=>{e.stopPropagation();onDismiss(t.id);}}
-            style={{
-              pointerEvents:"all",
-              background:TOAST_CONFIGS[t.type]?.bg||"rgba(56,189,248,0.95)",
-              border:`2px solid ${TOAST_CONFIGS[t.type]?.border||"#38bdf8"}`,
-              borderRadius:16, padding:"12px 20px",
-              display:"flex", alignItems:"center", gap:12,
-              boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
-              animation: t.fading ? "toastOut 0.4s ease forwards" : "toastIn 0.3s ease",
-              maxWidth:340, cursor:"pointer"
-            }}>
-            <span style={{fontSize:28}}>{TOAST_CONFIGS[t.type]?.icon||"⛳"}</span>
-            <div style={{flex:1}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:"#fff",letterSpacing:2}}>
-                {TOAST_CONFIGS[t.type]?.label} — Trou #{t.hole}
-              </div>
-              <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:1}}>
-                {t.teamName} · {t.score} coups
-              </div>
-            </div>
-            <span style={{fontSize:16,color:"rgba(255,255,255,0.5)"}}>✕</span>
-          </div>
-        ))}
-        <style>{`
-          @keyframes toastIn  { from{opacity:0;transform:translateY(-16px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
-          @keyframes toastOut { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(0.9)} }
-        `}</style>
-      </div>
-    </>
-  );
-}
-
-// ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
+// ─── ADMIN ───────────────────────────────────────────────────────────────────
 function AdminPanel({ teams, users, onResetGame, onResetAll, onDeleteMember }) {
-  const [confirmMode, setConfirmMode] = useState(null);
+  const [confirmMode, setConfirmMode]   = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   const allMembers = [];
-  teams.forEach(t => (t.members||[]).forEach(m => allMembers.push({ member:m, team:t })));
-
+  teams.forEach(t=>(t.members||[]).forEach(m=>allMembers.push({member:m,team:t})));
   const memberNames = new Set(allMembers.map(x=>x.member));
-  const orphans = users.filter(u => !memberNames.has(u.name));
+  const orphans = users.filter(u=>!memberNames.has(u.name));
 
   return (
     <div>
@@ -568,12 +501,10 @@ function AdminPanel({ teams, users, onResetGame, onResetAll, onDeleteMember }) {
         </div>
       </div>
 
-      {/* Delete member */}
+      {/* Members */}
       <div style={{background:"rgba(56,189,248,0.05)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:14,padding:20,marginBottom:12}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#38bdf8",letterSpacing:1,marginBottom:12}}>
-          👤 GÉRER LES MEMBRES
-        </div>
-        {allMembers.length===0&&<p style={{color:"#475569",fontSize:13}}>Aucun membre pour l'instant.</p>}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#38bdf8",letterSpacing:1,marginBottom:12}}>👤 GÉRER LES MEMBRES</div>
+        {!allMembers.length&&<p style={{color:"#475569",fontSize:13}}>Aucun membre pour l'instant.</p>}
         {allMembers.map(({member,team})=>(
           <div key={`${team.id}-${member}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
             <div>
@@ -581,200 +512,147 @@ function AdminPanel({ teams, users, onResetGame, onResetAll, onDeleteMember }) {
               {team.creator===member&&<span style={{marginLeft:6,fontSize:10,color:"#fbbf24",letterSpacing:1}}>CAPT.</span>}
               <div style={{fontSize:11,color:"#475569"}}>{team.name}</div>
             </div>
-            {confirmDelete?.member===member&&confirmDelete?.teamId===team.id ? (
+            {confirmDelete?.member===member&&confirmDelete?.teamId===team.id?(
               <div style={{display:"flex",gap:6}}>
                 <button onClick={()=>{onDeleteMember(team,member);setConfirmDelete(null);}}
-                  style={{padding:"5px 10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                  SUPPR.
-                </button>
+                  style={{padding:"5px 10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>SUPPR.</button>
                 <button onClick={()=>setConfirmDelete(null)}
-                  style={{padding:"5px 8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,color:"#64748b",cursor:"pointer",fontSize:12}}>
-                  ✕
-                </button>
+                  style={{padding:"5px 8px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,color:"#64748b",cursor:"pointer",fontSize:12}}>✕</button>
               </div>
             ):(
               <button onClick={()=>setConfirmDelete({teamId:team.id,member})}
-                style={{padding:"5px 12px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:6,color:"#f87171",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-                RETIRER
-              </button>
+                style={{padding:"5px 12px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:6,color:"#f87171",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>RETIRER</button>
             )}
           </div>
         ))}
       </div>
 
-      {/* Orphan users */}
+      {/* Orphans */}
       <div style={{background:"rgba(100,116,139,0.05)",border:"1px solid rgba(100,116,139,0.2)",borderRadius:14,padding:20,marginBottom:12}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#94a3b8",letterSpacing:1,marginBottom:12}}>
-          👻 JOUEURS SANS ÉQUIPE
-        </div>
-        {orphans.length===0&&<p style={{color:"#475569",fontSize:13}}>Aucun joueur orphelin.</p>}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#94a3b8",letterSpacing:1,marginBottom:12}}>👻 JOUEURS SANS ÉQUIPE</div>
+        {!orphans.length&&<p style={{color:"#475569",fontSize:13}}>Aucun joueur orphelin.</p>}
         {orphans.map(u=>(
           <div key={u.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-            <div>
-              <span style={{color:"#94a3b8",fontSize:15,fontWeight:600}}>{u.name}</span>
-              <div style={{fontSize:11,color:"#475569"}}>Inscrit · sans équipe</div>
-            </div>
+            <span style={{color:"#94a3b8",fontSize:15,fontWeight:600}}>{u.name}</span>
+            <div style={{fontSize:11,color:"#475569"}}>Sans équipe</div>
           </div>
         ))}
       </div>
+
+      {/* Reset game */}
       <div style={{background:"rgba(249,115,22,0.06)",border:"1px solid rgba(249,115,22,0.25)",borderRadius:14,padding:20,marginBottom:12}}>
-        <div style={{marginBottom:10}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#fb923c",letterSpacing:1,marginBottom:4}}>
-            🔄 RESETTER LA PARTIE
-          </div>
-          <p style={{fontSize:13,color:"#94a3b8",lineHeight:1.5}}>
-            Efface les scores, nearest pin et messages.<br/>
-            <strong style={{color:"#fb923c"}}>Les équipes et joueurs sont conservés.</strong>
-          </p>
-        </div>
-        {confirmMode==="game" ? (
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#fb923c",letterSpacing:1,marginBottom:6}}>🔄 RESETTER LA PARTIE</div>
+        <p style={{fontSize:13,color:"#94a3b8",lineHeight:1.5,marginBottom:10}}>Efface les scores, nearest pin et messages.<br/><strong style={{color:"#fb923c"}}>Les équipes et joueurs sont conservés.</strong></p>
+        {confirmMode==="game"?(
           <div>
-            <p style={{color:"#fbbf24",fontSize:13,fontWeight:700,marginBottom:10}}>⚠️ Es-tu certain? Cette action est irréversible.</p>
+            <p style={{color:"#fbbf24",fontSize:13,fontWeight:700,marginBottom:10}}>⚠️ Es-tu certain?</p>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>{onResetGame();setConfirmMode(null);}}
-                style={{flex:1,padding:"10px",background:"rgba(249,115,22,0.3)",border:"1px solid #f97316",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900,letterSpacing:1}}>
-                ✓ OUI, RESETTER
-              </button>
-              <button onClick={()=>setConfirmMode(null)}
-                style={{padding:"10px 16px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#64748b",cursor:"pointer",fontSize:13}}>
-                ANNULER
-              </button>
+              <button onClick={()=>{onResetGame();setConfirmMode(null);}} style={{flex:1,padding:"10px",background:"rgba(249,115,22,0.3)",border:"1px solid #f97316",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900,letterSpacing:1}}>✓ OUI</button>
+              <button onClick={()=>setConfirmMode(null)} style={{padding:"10px 16px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#64748b",cursor:"pointer",fontSize:13}}>ANNULER</button>
             </div>
           </div>
-        ) : (
-          <button onClick={()=>setConfirmMode("game")}
-            style={{padding:"10px 20px",background:"rgba(249,115,22,0.2)",border:"1px solid rgba(249,115,22,0.4)",borderRadius:8,color:"#fb923c",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,letterSpacing:1}}>
-            RESETTER LA PARTIE →
-          </button>
+        ):(
+          <button onClick={()=>setConfirmMode("game")} style={{padding:"10px 20px",background:"rgba(249,115,22,0.2)",border:"1px solid rgba(249,115,22,0.4)",borderRadius:8,color:"#fb923c",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,letterSpacing:1}}>RESETTER LA PARTIE →</button>
         )}
       </div>
 
       {/* Reset all */}
       <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:20}}>
-        <div style={{marginBottom:10}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:4}}>
-            💀 TOUT EFFACER
-          </div>
-          <p style={{fontSize:13,color:"#94a3b8",lineHeight:1.5}}>
-            Efface absolument tout — scores, équipes, joueurs, messages, nearest pin.<br/>
-            <strong style={{color:"#f87171"}}>Retour à zéro complet.</strong>
-          </p>
-        </div>
-        {confirmMode==="all" ? (
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:6}}>💀 TOUT EFFACER</div>
+        <p style={{fontSize:13,color:"#94a3b8",lineHeight:1.5,marginBottom:10}}>Efface absolument tout.<br/><strong style={{color:"#f87171"}}>Retour à zéro complet.</strong></p>
+        {confirmMode==="all"?(
           <div>
-            <p style={{color:"#fbbf24",fontSize:13,fontWeight:700,marginBottom:10}}>⚠️ VRAIMENT TOUT EFFACER? Impossible d'annuler.</p>
+            <p style={{color:"#fbbf24",fontSize:13,fontWeight:700,marginBottom:10}}>⚠️ VRAIMENT TOUT?</p>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>{onResetAll();setConfirmMode(null);}}
-                style={{flex:1,padding:"10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900,letterSpacing:1}}>
-                💀 OUI, TOUT EFFACER
-              </button>
-              <button onClick={()=>setConfirmMode(null)}
-                style={{padding:"10px 16px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#64748b",cursor:"pointer",fontSize:13}}>
-                ANNULER
-              </button>
+              <button onClick={()=>{onResetAll();setConfirmMode(null);}} style={{flex:1,padding:"10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900,letterSpacing:1}}>💀 OUI</button>
+              <button onClick={()=>setConfirmMode(null)} style={{padding:"10px 16px",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#64748b",cursor:"pointer",fontSize:13}}>ANNULER</button>
             </div>
           </div>
-        ) : (
-          <button onClick={()=>setConfirmMode("all")}
-            style={{padding:"10px 20px",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:8,color:"#f87171",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,letterSpacing:1}}>
-            TOUT EFFACER →
-          </button>
+        ):(
+          <button onClick={()=>setConfirmMode("all")} style={{padding:"10px 20px",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:8,color:"#f87171",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,letterSpacing:1}}>TOUT EFFACER →</button>
         )}
       </div>
     </div>
   );
 }
 
-
+// ─── MAIN APP ────────────────────────────────────────────────────────────────
 function App() {
-  const [rawState, setRawState] = useState(null);
-  const [userName, setUserName]   = useState(() => localStorage.getItem("rq-username")||"");
-  const [view, setView]           = useState("board");
+  const [rawState, setRawState]         = useState(null);
+  const [userName, setUserName]         = useState(() => localStorage.getItem("rq-username")||"");
+  const [view, setView]                 = useState("board");
   const [activeTeamId, setActiveTeamId] = useState(null);
   const [newTeamName, setNewTeamName]   = useState("");
   const [chatInput, setChatInput]       = useState("");
   const [connected, setConnected]       = useState(false);
   const [toasts, setToasts]             = useState([]);
-  const [lightMode, setLightMode]       = useState(false);
-  const chatEndRef   = useRef(null);
-  const prevScores   = useRef({});
+  const chatEndRef = useRef(null);
+  const prevScores = useRef({});
 
   function addToast(type, hole, score, teamName) {
     const id = generateId();
-    setToasts(t=>[...t, { id, type, hole, score, teamName, fading:false }]);
-    // Start fade after 14.5s, remove after 15s
-    setTimeout(()=> setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x)), 14500);
-    setTimeout(()=> setToasts(t=>t.filter(x=>x.id!==id)), 15000);
+    setToasts(t=>[...t,{id,type,hole,score,teamName,fading:false}]);
+    setTimeout(()=>setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x)),14500);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),15000);
   }
-
   function dismissToast(id) {
     setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x));
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),400);
   }
 
-  // Live subscription
   useEffect(()=>{
-    const unsub = subscribeState(data => {
-      // Normalize: Firebase stores arrays as objects with numeric keys
+    const unsub = subscribeState(data=>{
       const teams = data.teams
-        ? Object.entries(data.teams).map(([id,t])=>({
-            ...t, id,
-            members: t.members ? (Array.isArray(t.members)?t.members:Object.values(t.members)) : [],
-            scores:  t.scores  ? (Array.isArray(t.scores) ?t.scores :Object.values(t.scores))  : Array(18).fill(""),
+        ? Object.entries(data.teams).map(([id,t])=>({...t,id,
+            members:t.members?(Array.isArray(t.members)?t.members:Object.values(t.members)):[],
+            scores: t.scores ?(Array.isArray(t.scores) ?t.scores :Object.values(t.scores)) :Array(18).fill(""),
           }))
         : [];
       const messages = data.messages
         ? Object.entries(data.messages).map(([id,m])=>({...m,id})).sort((a,b)=>a.ts-b.ts)
         : [];
-
-      // ── Detect score changes and fire toasts ──
-      teams.forEach(team => {
-        const prev = prevScores.current[team.id];
-        if (prev) {
-          team.scores.forEach((sc, i) => {
-            if (sc===""||sc==null) return;
-            const prevSc = prev[i];
-            if (prevSc===sc) return; // no change
-            const par  = LAC_MEGANTIC_HOLES[i].par;
-            const diff = Number(sc) - par;
-            let type = null;
-            if (diff <= -2) type="eagle";
-            else if (diff===-1) type="birdie";
-            else if (diff===1)  type="bogey";
-            else if (diff===2)  type="double";
-            else if (diff>=3)   type="pire";
-            if (type) addToast(type, i+1, sc, team.name);
-          });
-        }
-        prevScores.current[team.id] = [...team.scores];
-      });
-
       const users = data.users
         ? Object.entries(data.users).map(([name,u])=>({name,...u}))
         : [];
 
-      // ── Force logout if this user was deleted by admin ──
-      const currentUser = localStorage.getItem("rq-username");
-      if (currentUser && data.users?.[currentUser]?.deleted) {
+      // Toasts on score change
+      teams.forEach(team=>{
+        const prev=prevScores.current[team.id];
+        if (prev) {
+          team.scores.forEach((sc,i)=>{
+            if (sc===""||sc==null) return;
+            if (prev[i]===sc) return;
+            const d=Number(sc)-LAC_MEGANTIC_HOLES[i].par;
+            let type=null;
+            if (d<=-2) type="eagle"; else if(d===-1) type="birdie";
+            else if(d===1) type="bogey"; else if(d===2) type="double"; else if(d>=3) type="pire";
+            if (type) addToast(type,i+1,sc,team.name);
+          });
+        }
+        prevScores.current[team.id]=[...team.scores];
+      });
+
+      // Force logout if deleted
+      const cur=localStorage.getItem("rq-username");
+      if (cur&&data.users?.[cur]?.deleted) {
         localStorage.removeItem("rq-username");
-        await fbRemove(`users/${currentUser}`);
+        fbRemove(`users/${cur}`);
         setUserName("");
-        setRawState(s=>({...s, teams, messages, nearestPin: data.nearestPin||{}, users}));
         setConnected(true);
+        setRawState({teams,messages,nearestPin:data.nearestPin||{},users});
         return;
       }
 
-      setRawState({ teams, messages, nearestPin: data.nearestPin||{}, users });
+      setRawState({teams,messages,nearestPin:data.nearestPin||{},users});
       setConnected(true);
     });
     return unsub;
   },[]);
 
-  // Register returning user in Firebase if not already there
   useEffect(()=>{
     if (!userName) return;
     db.ref(`${ROOT}/users/${userName}`).get().then(snap=>{
-      if (!snap.exists()) fbSet(`users/${userName}`, { joinedAt: Date.now(), teamId: null });
+      if (!snap.exists()) fbSet(`users/${userName}`,{joinedAt:Date.now(),teamId:null,deleted:false});
     });
   },[userName]);
 
@@ -783,194 +661,127 @@ function App() {
   },[rawState?.messages?.length]);
 
   async function registerAndEnter(name, action, payload) {
-    // Check if name already taken by an active user
-    const userSnap = await db.ref(`${ROOT}/users/${name}`).get();
-    if (userSnap.exists() && !userSnap.val().deleted) {
-      alert(`Le nom "${name}" est déjà utilisé par quelqu'un dans la room! Choisis un autre nom.`);
+    const snap = await db.ref(`${ROOT}/users/${name}`).get();
+    if (snap.exists()&&!snap.val().deleted) {
+      alert(`Le nom "${name}" est déjà utilisé! Choisis un autre nom.`);
       return;
     }
-    // Register user in Firebase
-    await fbSet(`users/${name}`, { joinedAt: Date.now(), teamId: null, deleted: false });
+    await fbSet(`users/${name}`,{joinedAt:Date.now(),teamId:null,deleted:false});
+    localStorage.setItem("rq-username",name);
     setUserName(name);
-
-    // Handle team action from entry screen
-    if (action==="join" && payload) {
-      const team = payload;
+    if (action==="join"&&payload) {
+      const team=payload;
       if (!(team.members||[]).includes(name)) {
-        const members = [...(team.members||[]), name];
-        await fbSet(`teams/${team.id}/members`, members);
-        await fbSet(`users/${name}/teamId`, team.id);
+        await fbSet(`teams/${team.id}/members`,[...(team.members||[]),name]);
+        await fbSet(`users/${name}/teamId`,team.id);
       }
-      setActiveTeamId(team.id);
-      setView("scorecard");
-    } else if (action==="create" && payload) {
-      const id = generateId();
-      await fbSet(`teams/${id}`, { name:payload, creator:name, members:[name], scores:Array(18).fill(""), createdAt:Date.now() });
-      await fbSet(`users/${name}/teamId`, id);
-      setActiveTeamId(id);
-      setView("scorecard");
+      setActiveTeamId(team.id); setView("scorecard");
+    } else if (action==="create"&&payload) {
+      const id=generateId();
+      await fbSet(`teams/${id}`,{name:payload,creator:name,members:[name],scores:Array(18).fill(""),createdAt:Date.now()});
+      await fbSet(`users/${name}/teamId`,id);
+      setActiveTeamId(id); setView("scorecard");
     }
-  }
-
-  function saveUserName(n) {
-    localStorage.setItem("rq-username", n);
-    setUserName(n);
   }
 
   if (!connected) return <Spinner/>;
   if (!userName)  return <EntryScreen onEnter={registerAndEnter} teams={rawState?.teams||[]}/>;
 
-  const { teams=[], messages=[], nearestPin={}, users=[] } = rawState||{};
-  const myTeam = teams.find(t=>(t.members||[]).includes(userName));
+  const {teams=[],messages=[],nearestPin={},users=[]} = rawState||{};
+  const myTeam  = teams.find(t=>(t.members||[]).includes(userName));
   const canEdit = myTeam?.creator===userName;
+  const isAdmin = userName==="Nick";
   const viewTeam = teams.find(t=>t.id===activeTeamId);
 
   async function createTeam() {
     if (!newTeamName.trim()) return;
     if (myTeam) return alert("Tu es déjà dans une équipe!");
-    const id = generateId();
-    await fbSet(`teams/${id}`, { name:newTeamName.trim(), creator:userName, members:[userName], scores:Array(18).fill(""), createdAt:Date.now() });
+    const id=generateId();
+    await fbSet(`teams/${id}`,{name:newTeamName.trim(),creator:userName,members:[userName],scores:Array(18).fill(""),createdAt:Date.now()});
     setNewTeamName(""); setActiveTeamId(id); setView("scorecard");
   }
-
   async function joinTeam(teamId) {
     if (myTeam) return alert("Tu es déjà dans une équipe!");
-    const team = teams.find(t=>t.id===teamId);
-    const members = [...(team.members||[]), userName];
-    await fbSet(`teams/${teamId}/members`, members);
+    const team=teams.find(t=>t.id===teamId);
+    await fbSet(`teams/${teamId}/members`,[...(team.members||[]),userName]);
     setActiveTeamId(teamId); setView("scorecard");
   }
-
   async function leaveTeam() {
     if (!myTeam) return;
     if (myTeam.creator===userName) {
       if (!window.confirm("Tu es le créateur. L'équipe sera supprimée!")) return;
       await fbRemove(`teams/${myTeam.id}`);
     } else {
-      const members = myTeam.members.filter(m=>m!==userName);
-      await fbSet(`teams/${myTeam.id}/members`, members);
+      await fbSet(`teams/${myTeam.id}/members`,myTeam.members.filter(m=>m!==userName));
     }
     setActiveTeamId(null); setView("board");
   }
-
-  async function updateScores(scores) {
-    await fbSet(`teams/${myTeam.id}/scores`, scores);
-  }
-
-  async function updateNearestPin(holeNum, winner, teamId, teamName) {
-    await fbSet(`nearestPin/${holeNum}`, { winner, teamId, teamName });
-  }
-
+  async function updateScores(scores) { await fbSet(`teams/${myTeam.id}/scores`,scores); }
+  async function updateNearestPin(holeNum,winner,teamId,teamName) { await fbSet(`nearestPin/${holeNum}`,{winner,teamId,teamName}); }
   async function sendMessage() {
     if (!chatInput.trim()) return;
-    await fbPush("messages", { author:userName, team:myTeam?.name||"Spectateur", text:chatInput.trim(), ts:Date.now() });
+    await fbPush("messages",{author:userName,team:myTeam?.name||"Spectateur",text:chatInput.trim(),ts:Date.now()});
     setChatInput("");
   }
-
-  async function deleteMember(team, member) {
-    if (team.creator===member) {
-      await fbRemove(`teams/${team.id}`);
-    } else {
-      const members = (team.members||[]).filter(m=>m!==member);
-      await fbSet(`teams/${team.id}/members`, members);
-    }
-    // Flag the user as deleted — their app will detect this and force logout
-    await fbSet(`users/${member}/deleted`, true);
+  async function deleteMember(team,member) {
+    if (team.creator===member) await fbRemove(`teams/${team.id}`);
+    else await fbSet(`teams/${team.id}/members`,(team.members||[]).filter(m=>m!==member));
+    await fbSet(`users/${member}/deleted`,true);
   }
-
   async function resetGame() {
-    await fbRemove("nearestPin");
-    await fbRemove("messages");
-    // Reset all team scores
-    const { teams=[] } = rawState||{};
-    for (const team of teams) {
-      await fbSet(`teams/${team.id}/scores`, Array(18).fill(""));
-    }
+    await fbRemove("nearestPin"); await fbRemove("messages");
+    for (const t of teams) await fbSet(`teams/${t.id}/scores`,Array(18).fill(""));
   }
-
   async function resetAll() {
     await db.ref(ROOT).remove();
-    localStorage.removeItem("rq-username");
-    setUserName("");
+    localStorage.removeItem("rq-username"); setUserName("");
   }
 
-  const isAdmin = userName === "Nick";
-
-  // Theme tokens
-  const T = lightMode ? {
-    bg:"#f0f4f8", surface:"rgba(255,255,255,0.9)", border:"rgba(14,165,233,0.25)",
-    headerBg:"rgba(240,244,248,0.97)", text:"#0f172a", muted:"#64748b",
-    accent:"#0284c7", accentText:"#0284c7", navBg:"rgba(240,244,248,0.97)",
-    navBorder:"rgba(14,165,233,0.2)", cardBg:"rgba(14,165,233,0.04)",
-    inputBg:"rgba(255,255,255,0.8)", subtext:"#94a3b8"
-  } : {
-    bg:"#0a1628", surface:"rgba(255,255,255,0.04)", border:"rgba(56,189,248,0.2)",
-    headerBg:"rgba(10,22,40,0.95)", text:"#f0f9ff", muted:"#475569",
-    accent:"#38bdf8", accentText:"#38bdf8", navBg:"rgba(8,18,34,0.97)",
-    navBorder:"rgba(56,189,248,0.15)", cardBg:"rgba(255,255,255,0.03)",
-    inputBg:"rgba(255,255,255,0.06)", subtext:"#64748b"
-  };
-
   const navItems = [
-    { id:"board",     label:"Tableau",  emoji:"🏆" },
-    { id:"teams",     label:"Équipes",  emoji:"⛳" },
-    { id:"scorecard", label:myTeam?"Ma carte":"Scores", emoji:"📋" },
-    { id:"chat",      label:"Trash",    emoji:"🦈" },
-    ...(isAdmin ? [{ id:"admin", label:"Admin", emoji:"🔐" }] : []),
+    {id:"board",     label:"Tableau", emoji:"🏆"},
+    {id:"teams",     label:"Équipes", emoji:"⛳"},
+    {id:"scorecard", label:myTeam?"Ma carte":"Scores", emoji:"📋"},
+    {id:"chat",      label:"Trash",   emoji:"🦈"},
+    ...(isAdmin?[{id:"admin",label:"Admin",emoji:"🔐"}]:[]),
   ];
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"'Barlow',sans-serif",paddingBottom:80,transition:"background 0.3s,color 0.3s"}}>
-
+    <div style={{minHeight:"100vh",background:"#0a1628",color:"#fff",fontFamily:"'Barlow',sans-serif",paddingBottom:80}}>
       <ToastContainer toasts={toasts} onDismiss={dismissToast}/>
 
       {/* HEADER */}
-      <div style={{background:T.headerBg,backdropFilter:"blur(12px)",borderBottom:`1px solid ${T.navBorder}`,padding:"10px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{background:"rgba(10,22,40,0.95)",backdropFilter:"blur(12px)",borderBottom:"1px solid rgba(56,189,248,0.15)",padding:"12px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🦈</span>
           <div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:T.accent}}>REQUIN OPEN</div>
-            <div style={{fontSize:10,color:T.muted,letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:"#38bdf8"}}>REQUIN OPEN</div>
+            <div style={{fontSize:10,color:"#475569",letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
           </div>
-          <div style={{background:lightMode?"rgba(2,132,199,0.1)":"rgba(56,189,248,0.12)",border:`1px solid ${T.border}`,borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:T.accent,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.5</span>
+          <div style={{background:"rgba(56,189,248,0.12)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:6,padding:"2px 8px",marginLeft:4}}>
+            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.4</span>
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {/* User info */}
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:12,color:T.text,fontWeight:700,lineHeight:1.2}}>
-              {userName}
-              {myTeam&&<span style={{color:T.accent,fontWeight:400}}> ({myTeam.name})</span>}
-            </div>
-            <div style={{fontSize:10,color:"#22c55e",letterSpacing:1}}>● LIVE</div>
-          </div>
-          {/* Theme toggle */}
-          <button onClick={()=>setLightMode(m=>!m)}
-            style={{width:34,height:34,borderRadius:"50%",background:lightMode?"rgba(2,132,199,0.1)":"rgba(56,189,248,0.1)",border:`1px solid ${T.border}`,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
-            {lightMode?"🌙":"☀️"}
-          </button>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:12,color:myTeam?"#22c55e":"#64748b",fontWeight:600}}>{myTeam?`🟢 ${myTeam.name}`:`👤 ${userName}`}</div>
+          <div style={{fontSize:10,color:"#22c55e",letterSpacing:1}}>● LIVE</div>
         </div>
       </div>
 
       {/* CONTENT */}
-      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px",animation:"fadeIn 0.3s ease",color:T.text}}>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px",animation:"fadeIn 0.3s ease"}}>
 
-        {/* ADMIN */}
         {view==="admin"&&isAdmin&&(
           <AdminPanel teams={teams} users={users} onResetGame={resetGame} onResetAll={resetAll} onDeleteMember={deleteMember}/>
         )}
 
-        {/* BOARD */}
         {view==="board"&&(
           <div>
             <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:"#f0f9ff",marginBottom:4}}>CLASSEMENT 🏆</h2>
-            <p style={{color:"#475569",fontSize:12,letterSpacing:2,marginBottom:20}}>Lac Mégantic · Par {TOTAL_PAR} · Mise à jour en temps réel</p>
+            <p style={{color:"#475569",fontSize:12,letterSpacing:2,marginBottom:20}}>Lac Mégantic · Par {TOTAL_PAR} · Temps réel</p>
             <Leaderboard teams={teams} nearestPin={nearestPin} canEdit={canEdit} onUpdateNP={updateNearestPin}/>
           </div>
         )}
 
-        {/* TEAMS */}
         {view==="teams"&&(
           <div>
             <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:"#f0f9ff",marginBottom:20}}>ÉQUIPES ⛳</h2>
@@ -1030,7 +841,6 @@ function App() {
           </div>
         )}
 
-        {/* SCORECARD */}
         {view==="scorecard"&&(
           <div>
             {!viewTeam&&!myTeam?(
@@ -1040,28 +850,25 @@ function App() {
                 <button onClick={()=>setView("teams")} style={{marginTop:16,padding:"12px 24px",background:"linear-gradient(135deg,#0ea5e9,#0284c7)",border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2}}>VOIR LES ÉQUIPES</button>
               </div>
             ):(
-              <div>
-                {teams.map(team=>{
-                  if (viewTeam&&team.id!==viewTeam.id) return null;
-                  if (!viewTeam&&team.id!==myTeam?.id) return null;
-                  const editable=team.creator===userName;
-                  return (
-                    <div key={team.id}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}>
-                        <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:900,color:"#f0f9ff",letterSpacing:1}}>🦈 {team.name}</h2>
-                        {!editable&&<span style={{fontSize:11,color:"#475569",letterSpacing:1}}>LECTURE SEULE</span>}
-                        {editable&&<span style={{fontSize:11,color:"#22c55e",letterSpacing:1}}>✏️ CAPITAINE</span>}
-                      </div>
-                      <ScoreCard team={team} onUpdate={editable?updateScores:()=>{}} readonly={!editable}/>
+              teams.map(team=>{
+                if (viewTeam&&team.id!==viewTeam.id) return null;
+                if (!viewTeam&&team.id!==myTeam?.id) return null;
+                const editable=team.creator===userName;
+                return (
+                  <div key={team.id}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}>
+                      <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:900,color:"#f0f9ff",letterSpacing:1}}>🦈 {team.name}</h2>
+                      {!editable&&<span style={{fontSize:11,color:"#475569",letterSpacing:1}}>LECTURE SEULE</span>}
+                      {editable&&<span style={{fontSize:11,color:"#22c55e",letterSpacing:1}}>✏️ CAPITAINE</span>}
                     </div>
-                  );
-                })}
-              </div>
+                    <ScoreCard team={team} onUpdate={editable?updateScores:()=>{}} readonly={!editable}/>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
 
-        {/* CHAT */}
         {view==="chat"&&(
           <div>
             <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:"#f0f9ff",marginBottom:4}}>TRASH TALK 🦈</h2>
@@ -1086,14 +893,14 @@ function App() {
       </div>
 
       {/* BOTTOM NAV */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.navBg,backdropFilter:"blur(16px)",borderTop:`1px solid ${T.navBorder}`,display:"flex",justifyContent:"space-around",padding:"10px 0 max(10px,env(safe-area-inset-bottom))"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(8,18,34,0.97)",backdropFilter:"blur(16px)",borderTop:"1px solid rgba(56,189,248,0.15)",display:"flex",justifyContent:"space-around",padding:"10px 0 max(10px,env(safe-area-inset-bottom))"}}>
         {navItems.map(nav=>{
           const active=view===nav.id;
           return (
-            <button key={nav.id} onClick={()=>setView(nav.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 16px",color:active?T.accent:T.muted,transition:"color 0.2s"}}>
+            <button key={nav.id} onClick={()=>setView(nav.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 16px",color:active?"#38bdf8":"#475569",transition:"color 0.2s"}}>
               <span style={{fontSize:22}}>{nav.emoji}</span>
               <span style={{fontSize:10,fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase"}}>{nav.label}</span>
-              {active&&<div style={{width:4,height:4,borderRadius:"50%",background:T.accent}}/>}
+              {active&&<div style={{width:4,height:4,borderRadius:"50%",background:"#38bdf8"}}/>}
             </button>
           );
         })}
