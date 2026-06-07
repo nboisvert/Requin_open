@@ -144,33 +144,95 @@ function Spinner() {
   );
 }
 
-function EntryScreen({ onEnter }) {
+function EntryScreen({ onEnter, teams }) {
   const [name, setName] = useState("");
   const [shake, setShake] = useState(false);
-  function handleJoin() {
+  const [step, setStep] = useState("name"); // "name" | "team"
+  const [newTeamName, setNewTeamName] = useState("");
+  const [mode, setMode] = useState(null); // null | "join" | "create"
+
+  function handleNameNext() {
     if (!name.trim()) { setShake(true); setTimeout(()=>setShake(false),500); return; }
-    onEnter(name.trim());
+    setStep("team");
   }
+
+  function handleSkip() { onEnter(name.trim(), null, null); }
+  function handleJoinTeam(team) { onEnter(name.trim(), "join", team); }
+  function handleCreateTeam() {
+    if (!newTeamName.trim()) return;
+    onEnter(name.trim(), "create", newTeamName.trim());
+  }
+
   return (
-    <div style={{minHeight:"100vh",background:"#0a1628",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",overflow:"hidden",position:"relative"}}>
+    <div style={{minHeight:"100vh",background:"#0a1628",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",overflow:"hidden",position:"relative",padding:"0 24px"}}>
       <div style={{position:"absolute",inset:0,overflow:"hidden",opacity:0.07}}>
         {[...Array(6)].map((_,i)=>(
           <div key={i} style={{position:"absolute",bottom:`${i*12}%`,left:"-20%",right:"-20%",height:200,borderRadius:"50%",border:"2px solid #38bdf8",animation:`wave ${3+i*0.5}s ease-in-out infinite alternate`,animationDelay:`${i*0.3}s`}}/>
         ))}
       </div>
-      <div style={{position:"relative",zIndex:1,textAlign:"center",padding:"0 24px",maxWidth:480,width:"100%"}}>
+
+      <div style={{position:"relative",zIndex:1,textAlign:"center",maxWidth:480,width:"100%"}}>
         <div style={{marginBottom:8}}><span style={{fontSize:80,filter:"drop-shadow(0 0 30px #38bdf8)"}}>🦈</span></div>
         <h1 style={{fontSize:"clamp(52px,12vw,96px)",fontWeight:900,letterSpacing:2,margin:0,lineHeight:0.9,background:"linear-gradient(135deg,#38bdf8 0%,#fff 50%,#7dd3fc 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",textTransform:"uppercase"}}>REQUIN<br/>OPEN</h1>
-        <p style={{color:"#475569",fontSize:13,letterSpacing:6,textTransform:"uppercase",margin:"12px 0 40px"}}>⛳ Lac Mégantic Golf Club ⛳</p>
-        <div style={{background:"rgba(255,255,255,0.04)",borderRadius:16,padding:32,border:"1px solid rgba(56,189,248,0.2)"}}>
-          <p style={{color:"#94a3b8",fontSize:14,letterSpacing:3,textTransform:"uppercase",margin:"0 0 16px"}}>Ton nom, champion</p>
-          <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleJoin()} placeholder="Ex: Patrick Mahomes"
-            style={{width:"100%",padding:"14px 18px",fontSize:20,fontWeight:700,background:"rgba(255,255,255,0.06)",border:"2px solid rgba(56,189,248,0.3)",borderRadius:10,color:"#fff",outline:"none",boxSizing:"border-box",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,animation:shake?"shake 0.4s ease":"none"}}
-            onFocus={e=>e.target.style.borderColor="#38bdf8"} onBlur={e=>e.target.style.borderColor="rgba(56,189,248,0.3)"}/>
-          <button onClick={handleJoin} style={{width:"100%",marginTop:16,padding:"16px",fontSize:20,fontWeight:900,background:"linear-gradient(135deg,#0ea5e9,#0284c7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",letterSpacing:3,textTransform:"uppercase",boxShadow:"0 8px 32px rgba(14,165,233,0.4)",fontFamily:"'Barlow Condensed',sans-serif"}}>
-            ENTRER DANS LA ROOM 🦈
-          </button>
-        </div>
+        <p style={{color:"#475569",fontSize:13,letterSpacing:6,textTransform:"uppercase",margin:"12px 0 32px"}}>⛳ Lac Mégantic Golf Club ⛳</p>
+
+        {step==="name" && (
+          <div style={{background:"rgba(255,255,255,0.04)",borderRadius:16,padding:28,border:"1px solid rgba(56,189,248,0.2)"}}>
+            <p style={{color:"#94a3b8",fontSize:13,letterSpacing:3,textTransform:"uppercase",margin:"0 0 14px"}}>Ton nom, champion</p>
+            <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleNameNext()} placeholder="Ex: Patrick Mahomes"
+              style={{width:"100%",padding:"14px 18px",fontSize:20,fontWeight:700,background:"rgba(255,255,255,0.06)",border:"2px solid rgba(56,189,248,0.3)",borderRadius:10,color:"#fff",outline:"none",boxSizing:"border-box",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,animation:shake?"shake 0.4s ease":"none"}}
+              onFocus={e=>e.target.style.borderColor="#38bdf8"} onBlur={e=>e.target.style.borderColor="rgba(56,189,248,0.3)"}/>
+            <button onClick={handleNameNext} style={{width:"100%",marginTop:14,padding:"15px",fontSize:19,fontWeight:900,background:"linear-gradient(135deg,#0ea5e9,#0284c7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",letterSpacing:3,textTransform:"uppercase",boxShadow:"0 8px 32px rgba(14,165,233,0.4)",fontFamily:"'Barlow Condensed',sans-serif"}}>
+              CONTINUER →
+            </button>
+          </div>
+        )}
+
+        {step==="team" && (
+          <div style={{background:"rgba(255,255,255,0.04)",borderRadius:16,padding:28,border:"1px solid rgba(56,189,248,0.2)",textAlign:"left"}}>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:22,fontWeight:900,color:"#38bdf8"}}>Salut {name}! 🦈</div>
+              <div style={{fontSize:13,color:"#64748b",marginTop:4}}>Rejoins ou crée une équipe</div>
+            </div>
+
+            {/* Join existing teams */}
+            {teams.length>0 && (
+              <div style={{marginBottom:16}}>
+                <p style={{color:"#94a3b8",fontSize:11,letterSpacing:2,margin:"0 0 10px"}}>ÉQUIPES EXISTANTES</p>
+                {teams.map(t=>(
+                  <button key={t.id} onClick={()=>handleJoinTeam(t)}
+                    style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",marginBottom:8,background:"rgba(56,189,248,0.06)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:10,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textAlign:"left"}}>
+                    <div>
+                      <div style={{fontSize:16,fontWeight:700}}>🦈 {t.name}</div>
+                      <div style={{fontSize:11,color:"#475569",marginTop:2}}>{(t.members||[]).join(", ")||"Aucun membre"}</div>
+                    </div>
+                    <span style={{fontSize:13,color:"#38bdf8",letterSpacing:1}}>JOINDRE →</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Divider */}
+            <div style={{display:"flex",alignItems:"center",gap:10,margin:"16px 0"}}>
+              <div style={{flex:1,height:1,background:"rgba(255,255,255,0.08)"}}/>
+              <span style={{color:"#334155",fontSize:12,letterSpacing:2}}>OU</span>
+              <div style={{flex:1,height:1,background:"rgba(255,255,255,0.08)"}}/>
+            </div>
+
+            {/* Create team */}
+            <p style={{color:"#94a3b8",fontSize:11,letterSpacing:2,margin:"0 0 8px"}}>CRÉER UNE ÉQUIPE</p>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              <input value={newTeamName} onChange={e=>setNewTeamName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleCreateTeam()} placeholder="Nom de l'équipe..."
+                style={{flex:1,padding:"11px 14px",fontSize:15,fontWeight:700,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:8,color:"#fff",outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+              <button onClick={handleCreateTeam} style={{padding:"11px 16px",background:"linear-gradient(135deg,#0ea5e9,#0284c7)",border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>CRÉER</button>
+            </div>
+
+            {/* Skip */}
+            <button onClick={handleSkip} style={{width:"100%",padding:"10px",background:"none",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,color:"#475569",cursor:"pointer",fontSize:12,letterSpacing:2,fontFamily:"'Barlow Condensed',sans-serif"}}>
+              CONTINUER SANS ÉQUIPE
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -486,13 +548,15 @@ function ToastContainer({ toasts, onDismiss }) {
 }
 
 // ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
-function AdminPanel({ teams, onResetGame, onResetAll, onDeleteMember }) {
+function AdminPanel({ teams, users, onResetGame, onResetAll, onDeleteMember }) {
   const [confirmMode, setConfirmMode] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // {teamId, member}
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Build flat list of all members across all teams
   const allMembers = [];
   teams.forEach(t => (t.members||[]).forEach(m => allMembers.push({ member:m, team:t })));
+
+  const memberNames = new Set(allMembers.map(x=>x.member));
+  const orphans = users.filter(u => !memberNames.has(u.name));
 
   return (
     <div>
@@ -534,6 +598,22 @@ function AdminPanel({ teams, onResetGame, onResetAll, onDeleteMember }) {
                 RETIRER
               </button>
             )}
+          </div>
+        ))}
+      </div>
+
+      {/* Orphan users */}
+      <div style={{background:"rgba(100,116,139,0.05)",border:"1px solid rgba(100,116,139,0.2)",borderRadius:14,padding:20,marginBottom:12}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#94a3b8",letterSpacing:1,marginBottom:12}}>
+          👻 JOUEURS SANS ÉQUIPE
+        </div>
+        {orphans.length===0&&<p style={{color:"#475569",fontSize:13}}>Aucun joueur orphelin.</p>}
+        {orphans.map(u=>(
+          <div key={u.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+            <div>
+              <span style={{color:"#94a3b8",fontSize:15,fontWeight:600}}>{u.name}</span>
+              <div style={{fontSize:11,color:"#475569"}}>Inscrit · sans équipe</div>
+            </div>
           </div>
         ))}
       </div>
@@ -668,15 +748,54 @@ function App() {
         prevScores.current[team.id] = [...team.scores];
       });
 
-      setRawState({ teams, messages, nearestPin: data.nearestPin||{} });
+      const users = data.users
+        ? Object.entries(data.users).map(([name,u])=>({name,...u}))
+        : [];
+      setRawState({ teams, messages, nearestPin: data.nearestPin||{}, users });
       setConnected(true);
     });
     return unsub;
   },[]);
 
+  // Register returning user in Firebase if not already there
+  useEffect(()=>{
+    if (!userName) return;
+    db.ref(`${ROOT}/users/${userName}`).get().then(snap=>{
+      if (!snap.exists()) fbSet(`users/${userName}`, { joinedAt: Date.now(), teamId: null });
+    });
+  },[userName]);
+
   useEffect(()=>{
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({behavior:"smooth"});
   },[rawState?.messages?.length]);
+
+  async function registerAndEnter(name, action, payload) {
+    // Register user in Firebase
+    const userSnap = await db.ref(`${ROOT}/users/${name}`).get();
+    if (!userSnap.exists()) {
+      await fbSet(`users/${name}`, { joinedAt: Date.now(), teamId: null });
+    }
+    localStorage.setItem("rq-username", name);
+    setUserName(name);
+
+    // Handle team action from entry screen
+    if (action==="join" && payload) {
+      const team = payload;
+      if (!(team.members||[]).includes(name)) {
+        const members = [...(team.members||[]), name];
+        await fbSet(`teams/${team.id}/members`, members);
+        await fbSet(`users/${name}/teamId`, team.id);
+      }
+      setActiveTeamId(team.id);
+      setView("scorecard");
+    } else if (action==="create" && payload) {
+      const id = generateId();
+      await fbSet(`teams/${id}`, { name:payload, creator:name, members:[name], scores:Array(18).fill(""), createdAt:Date.now() });
+      await fbSet(`users/${name}/teamId`, id);
+      setActiveTeamId(id);
+      setView("scorecard");
+    }
+  }
 
   function saveUserName(n) {
     localStorage.setItem("rq-username", n);
@@ -684,9 +803,9 @@ function App() {
   }
 
   if (!connected) return <Spinner/>;
-  if (!userName)  return <EntryScreen onEnter={saveUserName}/>;
+  if (!userName)  return <EntryScreen onEnter={registerAndEnter} teams={rawState?.teams||[]}/>;
 
-  const { teams=[], messages=[], nearestPin={} } = rawState||{};
+  const { teams=[], messages=[], nearestPin={}, users=[] } = rawState||{};
   const myTeam = teams.find(t=>(t.members||[]).includes(userName));
   const canEdit = myTeam?.creator===userName;
   const viewTeam = teams.find(t=>t.id===activeTeamId);
@@ -783,7 +902,7 @@ function App() {
             <div style={{fontSize:10,color:"#475569",letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
           </div>
           <div style={{background:"rgba(56,189,248,0.12)",border:"1px solid rgba(56,189,248,0.25)",borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.3</span>
+            <span style={{fontSize:11,fontWeight:900,color:"#38bdf8",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v1.4</span>
           </div>
         </div>
         <div style={{textAlign:"right"}}>
@@ -797,7 +916,7 @@ function App() {
 
         {/* ADMIN */}
         {view==="admin"&&isAdmin&&(
-          <AdminPanel teams={teams} onResetGame={resetGame} onResetAll={resetAll} onDeleteMember={deleteMember}/>
+          <AdminPanel teams={teams} users={users} onResetGame={resetGame} onResetAll={resetAll} onDeleteMember={deleteMember}/>
         )}
 
         {/* BOARD */}
