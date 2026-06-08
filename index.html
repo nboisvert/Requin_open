@@ -161,7 +161,7 @@ function ScoreSymbol({score, par, size=28, light}){
 }
 
 // ─── SCORECARD READONLY MODAL ─────────────────────────────────────────────────
-function ScorecardModal({team, onClose, light}){
+function ScorecardModal({team, onClose, light, nearestPin}){
   const t=T(light);
   const scores=team.scores||Array(18).fill("");
   const stats=getStats(scores);
@@ -261,7 +261,34 @@ function ScorecardModal({team, onClose, light}){
           ))}
         </div>
 
-        {/* Stat pills */}
+        {/* NP History for par 3s */}
+        {PAR3S.some(h=>nearestPin?.[h.hole]?.history?.length>0)&&(
+          <div style={{padding:"16px 20px 0"}}>
+            <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:t.tx2,letterSpacing:2,marginBottom:10}}>📍 HISTORIQUE NEAREST PIN</p>
+            {PAR3S.map(h=>{
+              const e=nearestPin?.[h.hole];
+              if(!e?.history?.length)return null;
+              return(
+                <div key={h.hole} style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:t.acc,fontWeight:700,letterSpacing:1,marginBottom:6}}>Trou #{h.hole} {e.locked?"🔒":""}</div>
+                  {e.history.map((ev,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${t.sep}`}}>
+                      <div style={{fontSize:10,color:t.tx2,minWidth:36}}>
+                        {ev.claimedAt?`${new Date(ev.claimedAt).getHours().toString().padStart(2,'0')}:${new Date(ev.claimedAt).getMinutes().toString().padStart(2,'0')}`:"—"}
+                      </div>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:i===e.history.length-1?"#22c55e":"#f59e0b",flexShrink:0}}/>
+                      <div style={{fontSize:13,color:i===e.history.length-1?t.tx:t.tx2}}>
+                        <strong>{ev.winner||ev.teamName}</strong>
+                        {ev.winner&&<span style={{fontSize:11,color:t.tx2}}> · {ev.teamName}</span>}
+                        {i===0?<span style={{fontSize:10,color:t.tx2}}> (1er claim)</span>:<span style={{fontSize:10,color:"#f59e0b"}}> 🎯 vol</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {stats.played>0&&(
           <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"16px 20px 0",justifyContent:"center"}}>
             {stats.eagles>0&&<StatPill emoji="🦅" count={stats.eagles} color="#f59e0b" label="EAGLE"/>}
@@ -395,7 +422,7 @@ function StatPill({emoji,count,color,label}){
 }
 
 // ─── HOLE SCORECARD (capitaine) ──────────────────────────────────────────────
-function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,teams}){
+function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,teams,userName}){
   const t=T(light);
   const scores=team.scores||Array(18).fill("");
   const firstEmpty=getCurrentHoleIdx(scores);
@@ -573,24 +600,21 @@ function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,t
 
         {/* Nearest pin section */}
         {isPar3&&(
-          <div style={{borderTop:`1px solid ${t.cardB}`,padding:"16px 20px",background:light?"rgba(45,106,45,0.04)":"rgba(56,189,248,0.03)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12}}>
+          <div style={{borderTop:`1px solid ${t.cardB}`,padding:"16px 20px",background:light?"rgba(45,106,45,0.03)":"rgba(56,189,248,0.02)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:14}}>
               <span style={{fontSize:16}}>📍</span>
               <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:t.acc,letterSpacing:2}}>NEAREST PIN — {NP_PRIZE}$</span>
             </div>
-            {npEntry?.teamName?(
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontWeight:700,color:t.tx,fontSize:15}}>🏆 {npEntry.winner||npEntry.teamName}</div>
-                  {npEntry.winner&&<div style={{fontSize:11,color:t.tx2,marginTop:2}}>{npEntry.teamName}</div>}
-                </div>
-                {canEdit&&<button onClick={()=>onUpdateNP(hole.hole,null,null,null)} style={{fontSize:11,color:t.tx2,background:"none",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>✏️ changer</button>}
-              </div>
-            ):canEdit?(
-              <NearestPinPicker teams={teams} holeNum={hole.hole} onSave={onUpdateNP} t={t}/>
-            ):(
-              <p style={{color:t.tx2,fontSize:12,fontStyle:"italic"}}>Pas encore attribué</p>
-            )}
+            <NearestPinClaim
+              npEntry={npEntry}
+              holeNum={hole.hole}
+              myTeam={teams.find(tm=>(tm.members||[]).includes(userName))||null}
+              isCapitaine={canEdit}
+              isCurrentHole={holeIdx===HOLES.findIndex(h=>h.hole===hole.hole)}
+              allTeams={teams}
+              onClaim={onUpdateNP}
+              light={light}
+            />
           </div>
         )}
       </div>
@@ -601,29 +625,144 @@ function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,t
   );
 }
 
-function NearestPinPicker({teams,holeNum,onSave,t}){
-  const [selTeamId,setSelTeamId]=useState("");
+function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, allTeams, onClaim, light}){
+  const t=T(light);
+  const [claimStep,setClaimStep]=useState(null); // null | 'selectPlayer' | 'confirm'
   const [selMember,setSelMember]=useState("");
-  const team=teams.find(t=>t.id===selTeamId);
-  if(!teams.length)return<p style={{color:t.tx2,fontSize:12}}>Aucune équipe.</p>;
+
+  // Is trou locked? All teams have a score for this hole
+  const holeIndex=HOLES.findIndex(h=>h.hole===holeNum);
+  const locked=npEntry?.locked||false;
+  const holder=npEntry?.teamName?npEntry:null;
+  const isHolder=holder&&holder.teamId===myTeam?.id;
+  const myTeamAlreadyClaimed=(npEntry?.history||[]).some(h=>h.teamId===myTeam?.id);
+  // Can claim: capitaine, on current hole, not already claimed, not locked
+  const canClaim=isCapitaine&&isCurrentHole&&!myTeamAlreadyClaimed&&!locked;
+  const history=npEntry?.history||[];
+
+  function handleClaimStart(){setClaimStep('selectPlayer');setSelMember("");}
+  function handlePlayerConfirm(){setClaimStep('confirm');}
+  function handleFinalClaim(){
+    onClaim(holeNum,selMember||null,myTeam.id,myTeam.name);
+    setClaimStep(null);setSelMember("");
+  }
+
+  function fmtTime(ts){
+    if(!ts)return"";
+    const d=new Date(ts);
+    return`${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  }
+
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-      <select value={selTeamId} onChange={e=>{setSelTeamId(e.target.value);setSelMember("");}}
-        style={{padding:"8px 10px",background:t.inp,border:`1px solid ${t.inpB}`,borderRadius:8,color:t.tx,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
-        <option value="">-- Équipe --</option>
-        {teams.map(tm=><option key={tm.id} value={tm.id}>{tm.name}</option>)}
-      </select>
-      {team&&(
-        <select value={selMember} onChange={e=>setSelMember(e.target.value)}
-          style={{padding:"8px 10px",background:t.inp,border:`1px solid ${t.inpB}`,borderRadius:8,color:t.tx,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
-          <option value="">-- Joueur (optionnel) --</option>
-          {(team.members||[]).map(m=><option key={m} value={m}>{m}</option>)}
-        </select>
+    <div>
+      {/* Holder display */}
+      {holder?(
+        <div style={{background:isHolder?(light?"rgba(34,197,94,0.1)":"rgba(34,197,94,0.08)"):(light?"rgba(245,158,11,0.08)":"rgba(245,158,11,0.06)"),border:`2px solid ${isHolder?"#22c55e":"#f59e0b"}`,borderRadius:14,padding:"14px 16px",marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:10,letterSpacing:2,color:isHolder?"#22c55e":"#f59e0b",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>
+                {locked?"🔒 VERROUILLÉ":"👑 DÉTENTEUR ACTUEL"}
+              </div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color:t.tx,lineHeight:1}}>
+                {holder.winner?holder.winner:holder.teamName}
+              </div>
+              {holder.winner&&<div style={{fontSize:12,color:t.tx2,marginTop:2}}>{holder.teamName}</div>}
+            </div>
+            <div style={{fontSize:36}}>{isHolder?"🏆":"🎯"}</div>
+          </div>
+          {isHolder&&!locked&&<div style={{fontSize:11,color:"#22c55e",marginTop:8,letterSpacing:1}}>Ton équipe tient le trou — attends de voir si quelqu'un te vole!</div>}
+        </div>
+      ):(
+        <div style={{background:t.cardH,border:`1px solid ${t.cardB}`,borderRadius:12,padding:"12px 16px",marginBottom:12,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:4}}>📍</div>
+          <div style={{color:t.tx2,fontSize:13,letterSpacing:1}}>Personne n'a encore claimé ce trou</div>
+        </div>
       )}
-      <button onClick={()=>selTeamId&&onSave(holeNum,selMember||null,selTeamId,team?.name)}
-        style={{padding:"10px",background:t.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-        ✓ SAUVER NEAREST PIN
-      </button>
+
+      {/* Claim flow */}
+      {canClaim&&claimStep===null&&(
+        <button onClick={handleClaimStart}
+          style={{width:"100%",padding:"14px",background:holder?(light?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#f59e0b,#d97706)"):(t.btn),border:"none",borderRadius:12,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,letterSpacing:2,boxShadow:holder?"0 4px 16px rgba(245,158,11,0.4)":"none"}}>
+          {holder?`🎯 VOLER LE TROU À ${holder.teamName.toUpperCase()}`:"📍 CLAIMER CE TROU"}
+        </button>
+      )}
+
+      {canClaim&&claimStep==='selectPlayer'&&(
+        <div style={{background:t.card,border:`1px solid ${t.cardHB}`,borderRadius:12,padding:16}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:t.acc,letterSpacing:2,marginBottom:12}}>
+            QUEL JOUEUR A LA BALLE LA PLUS PROCHE?
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+            {(myTeam?.members||[]).map(m=>(
+              <button key={m} onClick={()=>setSelMember(m)}
+                style={{padding:"12px 16px",background:selMember===m?t.cardHB:t.cardH,border:`2px solid ${selMember===m?t.acc:t.cardB}`,borderRadius:10,color:t.tx,cursor:"pointer",fontSize:15,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",textAlign:"left",transition:"all 0.15s"}}>
+                {selMember===m?"✓ ":""}{m}
+              </button>
+            ))}
+            <button onClick={()=>setSelMember("")}
+              style={{padding:"12px 16px",background:selMember===""?t.cardHB:t.cardH,border:`2px solid ${selMember===""?t.acc:t.cardB}`,borderRadius:10,color:t.tx2,cursor:"pointer",fontSize:14,fontFamily:"'Barlow Condensed',sans-serif",textAlign:"left",fontStyle:"italic"}}>
+              {selMember===""?"✓ ":""}Équipe seulement (pas de joueur précis)
+            </button>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={handlePlayerConfirm}
+              style={{flex:1,padding:"12px",background:t.btn,border:"none",borderRadius:10,color:"#fff",cursor:"pointer",fontSize:15,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+              CONTINUER →
+            </button>
+            <button onClick={()=>setClaimStep(null)}
+              style={{padding:"12px 16px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:10,color:t.tx2,cursor:"pointer",fontSize:14}}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {canClaim&&claimStep==='confirm'&&(
+        <div style={{background:light?"rgba(239,68,68,0.06)":"rgba(239,68,68,0.08)",border:"2px solid rgba(239,68,68,0.4)",borderRadius:12,padding:16}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:8}}>
+            ⚠️ CONFIRMATION REQUISE
+          </div>
+          <p style={{color:t.tx,fontSize:14,lineHeight:1.5,marginBottom:16}}>
+            {holder
+              ?<>T'es certain que <strong>{selMember||myTeam?.name}</strong> a battu <strong>{holder.winner||holder.teamName}</strong> au nearest pin?</>
+              :<>T'es certain que <strong>{selMember||myTeam?.name}</strong> tient le nearest pin du trou #{holeNum}?</>
+            }<br/>
+            <span style={{fontSize:12,color:"#f87171",fontStyle:"italic"}}>Cette action est irréversible.</span>
+          </p>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={handleFinalClaim}
+              style={{flex:1,padding:"12px",background:"linear-gradient(135deg,#ef4444,#dc2626)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",fontSize:15,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+              ✓ OUI, CONFIRMER
+            </button>
+            <button onClick={()=>setClaimStep(null)}
+              style={{padding:"12px 16px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:10,color:t.tx2,cursor:"pointer",fontSize:14}}>ANNULER</button>
+          </div>
+        </div>
+      )}
+
+      {/* Claim not available message */}
+      {!canClaim&&!locked&&isCapitaine&&!isCurrentHole&&!isHolder&&(
+        <div style={{fontSize:11,color:t.tx2,fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>
+          Tu peux seulement claimer quand tu joues ce trou
+        </div>
+      )}
+
+      {/* History */}
+      {history.length>0&&(
+        <div style={{marginTop:12}}>
+          <div style={{fontSize:10,color:t.tx2,letterSpacing:2,marginBottom:8}}>HISTORIQUE</div>
+          {history.map((h,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${t.sep}`}}>
+              <div style={{fontSize:10,color:t.tx2,minWidth:36}}>{fmtTime(h.claimedAt)}</div>
+              <div style={{width:6,height:6,borderRadius:"50%",background:i===history.length-1?"#22c55e":t.tx2,flexShrink:0}}/>
+              <div style={{fontSize:13,color:i===history.length-1?t.tx:t.tx2}}>
+                <strong>{h.winner||h.teamName}</strong>
+                {h.winner&&<span style={{fontSize:11,color:t.tx2}}> · {h.teamName}</span>}
+                {i===0&&<span style={{fontSize:10,color:t.tx2}}> (1er claim)</span>}
+                {i>0&&<span style={{fontSize:10,color:"#f59e0b"}}> 🎯 vol</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -689,31 +828,20 @@ function Leaderboard({teams,nearestPin,light,onViewScores}){
         return(
           <div key={team.id} style={{padding:"14px 16px",marginBottom:10,background:isLeading?t.cardH:t.card,border:`1px solid ${isLeading?t.cardHB:t.cardB}`,borderRadius:14}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-              <div style={{fontSize:26,minWidth:32,textAlign:"center"}}>{idx===0&&team.played>0?"🏆":`${idx+1}`}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,minWidth:28,textAlign:"center",color:isLeading?t.acc:t.tx2}}>{idx+1}</div>
               <div style={{flex:1}}>
-                <div style={{fontWeight:900,fontSize:18,color:t.tx,letterSpacing:1}}>{SHARK_EMOJIS[Math.min(idx,5)]} {team.name}</div>
+                <div style={{fontWeight:900,fontSize:18,color:t.tx,letterSpacing:1}}>{team.name}</div>
                 <div style={{fontSize:11,color:t.tx2,marginTop:1}}>{(team.members||[]).join(", ")||"—"}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:900,color:team.diff<0?"#22c55e":team.diff>0?"#f97316":t.tx2}}>
                   {team.played>0?fmtScore(team.diff):"—"}
                 </div>
-                {/* Current hole indicator */}
                 <div style={{fontSize:11,color:t.acc,fontWeight:700,letterSpacing:1}}>
                   {team.played===18?"✅ TERMINÉ":`▶ T${currentHole.hole} · ${team.played}/18`}
                 </div>
               </div>
             </div>
-            {team.played>0&&(
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:8,borderTop:`1px solid ${t.sep}`,marginBottom:8}}>
-                <StatPill emoji="🦅" count={team.eagles} color="#f59e0b" label="EAGLE"/>
-                <StatPill emoji="🐦" count={team.birdies} color="#22c55e" label="BIRDIE"/>
-                <StatPill emoji="🟰" count={team.pars} color={t.tx2} label="PAR"/>
-                <StatPill emoji="😬" count={team.bogeys} color="#f97316" label="BOGEY"/>
-                <StatPill emoji="💀" count={team.doubles} color="#ef4444" label="DOUBLE"/>
-                {team.pires>0&&<StatPill emoji="🔥" count={team.pires} color="#dc2626" label="PIRE"/>}
-              </div>
-            )}
             <button onClick={()=>onViewScores(team)}
               style={{width:"100%",padding:"7px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
               VOIR SCORECARD →
@@ -736,10 +864,11 @@ function Leaderboard({teams,nearestPin,light,onViewScores}){
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
                 <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,color:t.acc,minWidth:64}}>Trou #{h.hole}</span>
                 <span style={{fontSize:11,color:t.tx2}}>Par 3 · {h.yards}y</span>
+                {e?.locked&&<span style={{fontSize:10,color:t.tx2}}>🔒</span>}
               </div>
               {e?.teamName?(
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontWeight:700,color:t.tx,fontSize:14}}>🏆 {e.winner||e.teamName}</div>
+                  <div style={{fontWeight:700,color:t.tx,fontSize:14}}>👑 {e.winner||e.teamName}</div>
                   {e.winner&&<div style={{fontSize:11,color:t.tx2}}>{e.teamName}</div>}
                 </div>
               ):(
@@ -996,6 +1125,18 @@ function App(){
     setView("board");
   }
   async function updateScore(scores){if(myTeam)await fbSet(`teams/${myTeam.id}/scores`,scores);}
+  async function claimNP(holeNum,winner,teamId,teamName){
+    if(winner===null&&teamId===null){await fbRemove(`nearestPin/${holeNum}`);return;}
+    const holeIndex=HOLES.findIndex(h=>h.hole===holeNum);
+    // Check if all teams have a score for this hole → lock
+    const allScored=teams.every(tm=>{
+      const s=(tm.scores||[])[holeIndex];
+      return s!==""&&s!=null&&s!==undefined;
+    });
+    const existing=rawState?.nearestPin?.[holeNum];
+    const history=[...(existing?.history||[]),{teamId,teamName,winner,claimedAt:Date.now()}];
+    await fbSet(`nearestPin/${holeNum}`,{teamId,teamName,winner,claimedAt:Date.now(),locked:allScored,history});
+  }
   async function updateNP(holeNum,winner,teamId,teamName){
     if(winner===null&&teamId===null){await fbRemove(`nearestPin/${holeNum}`);return;}
     await fbSet(`nearestPin/${holeNum}`,{winner,teamId,teamName});
@@ -1033,18 +1174,15 @@ function App(){
       <ToastContainer toasts={toasts} onDismiss={dismissToast}/>
 
       {/* Scorecard modal (readonly) */}
-      {modalTeam&&<ScorecardModal team={modalTeam} onClose={()=>setModalTeam(null)} light={light}/>}
+      {modalTeam&&<ScorecardModal team={modalTeam} onClose={()=>setModalTeam(null)} light={light} nearestPin={nearestPin}/>}
 
       {/* HEADER */}
       <div style={{background:t.hdr,backdropFilter:"blur(12px)",borderBottom:`1px solid ${t.hdrB}`,padding:"12px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🦈</span>
           <div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:t.acc}}>REQUINS OPEN</div>
-            <div style={{fontSize:10,color:t.tx2,letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
-          </div>
-          <div style={{background:light?"rgba(45,106,45,0.1)":"rgba(56,189,248,0.12)",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:t.acc,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v2.2</span>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:900,letterSpacing:2,lineHeight:1,color:t.acc}}>REQUINS OPEN</div>
+            <div style={{fontSize:9,color:t.tx2,letterSpacing:2,marginTop:1}}>v2.3</div>
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1150,10 +1288,11 @@ function App(){
                   team={scorecardTeam}
                   canEdit={canEdit}
                   onUpdateScore={updateScore}
-                  onUpdateNP={updateNP}
+                  onUpdateNP={claimNP}
                   nearestPin={nearestPin}
                   light={light}
-                  teams={npTeams}
+                  teams={teams}
+                  userName={userName}
                 />
               </div>
             )}
