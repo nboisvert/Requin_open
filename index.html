@@ -1024,6 +1024,7 @@ function App(){
     {id:"teams",label:"Équipes",emoji:"⛳"},
     {id:"scorecard",label:myTeam?"Ma carte":"Scores",emoji:"📋"},
     {id:"chat",label:"Trash",emoji:"🦈"},
+    {id:"theme",label:light?"Sombre":"Clair",emoji:light?"🌙":"☀️"},
     ...(isAdmin?[{id:"admin",label:"Admin",emoji:"🔐"}]:[]),
   ];
 
@@ -1039,22 +1040,20 @@ function App(){
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🦈</span>
           <div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:t.acc}}>REQUIN OPEN</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:t.acc}}>REQUINS OPEN</div>
             <div style={{fontSize:10,color:t.tx2,letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
           </div>
           <div style={{background:light?"rgba(45,106,45,0.1)":"rgba(56,189,248,0.12)",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:t.acc,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v2.1</span>
+            <span style={{fontSize:11,fontWeight:900,color:t.acc,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v2.2</span>
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:12,color:myTeam?"#22c55e":t.tx2,fontWeight:600}}>{myTeam?`🟢 ${myTeam.name}`:`👤 ${userName}`}</div>
-            <div style={{fontSize:10,color:"#22c55e",letterSpacing:1}}>● LIVE</div>
+            <div style={{fontSize:13,color:t.tx,fontWeight:700,lineHeight:1.2}}>{userName}</div>
+            <div style={{fontSize:11,color:myTeam?t.acc:t.tx2,lineHeight:1.2}}>{myTeam?myTeam.name:"Sans équipe"}</div>
           </div>
-          <button onClick={()=>setLight(l=>!l)}
-            style={{width:34,height:34,borderRadius:"50%",background:t.cardH,border:`1px solid ${t.cardB}`,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            {light?"🌙":"☀️"}
-          </button>
+          {/* Online dot only */}
+          <div style={{width:8,height:8,borderRadius:"50%",background:connected?"#22c55e":"#ef4444",flexShrink:0}}/>
         </div>
       </div>
 
@@ -1187,9 +1186,12 @@ function App(){
       {/* BOTTOM NAV */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:t.nav,backdropFilter:"blur(16px)",borderTop:`1px solid ${t.navB}`,display:"flex",justifyContent:"space-around",padding:"10px 0 max(10px,env(safe-area-inset-bottom))"}}>
         {navItems.map(nav=>{
-          const active=view===nav.id;
+          const isTheme=nav.id==="theme";
+          const active=!isTheme&&view===nav.id;
           return(
-            <button key={nav.id} onClick={()=>setView(nav.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 16px",color:active?t.acc:t.tx2,transition:"color 0.2s"}}>
+            <button key={nav.id}
+              onClick={()=>isTheme?setLight(l=>!l):setView(nav.id)}
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 10px",color:active?t.acc:t.tx2,transition:"color 0.2s"}}>
               <span style={{fontSize:22}}>{nav.emoji}</span>
               <span style={{fontSize:10,fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase"}}>{nav.label}</span>
               {active&&<div style={{width:4,height:4,borderRadius:"50%",background:t.acc}}/>}
