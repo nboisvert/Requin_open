@@ -16,7 +16,7 @@
     body{background:#0a1628}
     input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
     input[type=number]{-moz-appearance:textfield}
-    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}
+    ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}
     select option{background:#0f2137}
     input::placeholder{color:#334155}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -26,6 +26,7 @@
     @keyframes toastIn{from{opacity:0;transform:translateY(-16px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes toastOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(0.9)}}
     @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes modalIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
   </style>
 </head>
 <body>
@@ -46,89 +47,247 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const ROOT = "requin-open-v1";
+function subscribeState(cb){const ref=db.ref(ROOT);ref.on("value",snap=>cb(snap.val()||{}));return()=>ref.off();}
+async function fbSet(path,val){await db.ref(`${ROOT}/${path}`).set(val);}
+async function fbPush(path,val){await db.ref(`${ROOT}/${path}`).push(val);}
+async function fbRemove(path){await db.ref(`${ROOT}/${path}`).remove();}
 
-function subscribeState(cb) {
-  const ref = db.ref(ROOT);
-  ref.on("value", snap => cb(snap.val()||{}));
-  return () => ref.off();
-}
-async function fbSet(path, val)  { await db.ref(`${ROOT}/${path}`).set(val); }
-async function fbPush(path, val) { await db.ref(`${ROOT}/${path}`).push(val); }
-async function fbRemove(path)    { await db.ref(`${ROOT}/${path}`).remove(); }
-
-// ─── COURSE DATA ─────────────────────────────────────────────────────────────
-const HOLES = [
-  {hole:1, par:5,yards:472},{hole:2, par:3,yards:171},{hole:3, par:5,yards:519},
-  {hole:4, par:4,yards:330},{hole:5, par:5,yards:501},{hole:6, par:3,yards:162},
-  {hole:7, par:4,yards:326},{hole:8, par:3,yards:178},{hole:9, par:4,yards:350},
+// ─── COURSE ──────────────────────────────────────────────────────────────────
+const HOLES=[
+  {hole:1,par:5,yards:472},{hole:2,par:3,yards:171},{hole:3,par:5,yards:519},
+  {hole:4,par:4,yards:330},{hole:5,par:5,yards:501},{hole:6,par:3,yards:162},
+  {hole:7,par:4,yards:326},{hole:8,par:3,yards:178},{hole:9,par:4,yards:350},
   {hole:10,par:4,yards:365},{hole:11,par:4,yards:419},{hole:12,par:3,yards:155},
   {hole:13,par:4,yards:390},{hole:14,par:4,yards:364},{hole:15,par:5,yards:515},
   {hole:16,par:4,yards:460},{hole:17,par:4,yards:324},{hole:18,par:4,yards:385},
 ];
-const PAR3S    = HOLES.filter(h=>h.par===3);
-const TOTAL_PAR = HOLES.reduce((s,h)=>s+h.par,0);
-const NP_PRIZE  = 50;
-const TRASH_EMOJIS = ["🦈","🏌️","⛳","🔥","💀","👀","🎯","💪"];
-const SHARK_EMOJIS = ["🏆","🌊","⚡","🎖️","👑","🦈"];
-
-function genId() { return Math.random().toString(36).slice(2,9); }
-
-function scoreDiff(score, par) { return Number(score) - par; }
-function scoreLabel(score, par) {
-  const d = scoreDiff(score,par);
-  if (d<=-2) return {label:"Eagle 🦅",color:"#f59e0b"};
-  if (d===-1) return {label:"Birdie 🐦",color:"#22c55e"};
-  if (d===0)  return {label:"Par",      color:"#94a3b8"};
-  if (d===1)  return {label:"Bogey",    color:"#f97316"};
-  if (d===2)  return {label:"Double 😬",color:"#ef4444"};
-  return {label:`+${d} 💀`,color:"#dc2626"};
-}
-function fmtScore(d) { return d===0?"E":d>0?`+${d}`:`${d}`; }
-
-function getStats(scores) {
+const PAR3S=HOLES.filter(h=>h.par===3);
+const TOTAL_PAR=HOLES.reduce((s,h)=>s+h.par,0);
+const NP_PRIZE=50;
+const TRASH_EMOJIS=["🦈","🏌️","⛳","🔥","💀","👀","🎯","💪"];
+const SHARK_EMOJIS=["🏆","🌊","⚡","🎖️","👑","🦈"];
+function genId(){return Math.random().toString(36).slice(2,9);}
+function fmtScore(d){return d===0?"E":d>0?`+${d}`:`${d}`;}
+function getDiff(score,par){return Number(score)-par;}
+function getStats(scores){
   let total=0,played=0,eagles=0,birdies=0,pars=0,bogeys=0,doubles=0,pires=0;
   (scores||[]).forEach((s,i)=>{
-    if(s===""||s==null||s===undefined) return;
-    const d=Number(s)-HOLES[i].par; total+=d; played++;
-    if(d<=-2)eagles++; else if(d===-1)birdies++; else if(d===0)pars++;
-    else if(d===1)bogeys++; else if(d===2)doubles++; else pires++;
+    if(s===""||s==null||s===undefined)return;
+    const d=Number(s)-HOLES[i].par;total+=d;played++;
+    if(d<=-2)eagles++;else if(d===-1)birdies++;else if(d===0)pars++;
+    else if(d===1)bogeys++;else if(d===2)doubles++;else pires++;
   });
   return{diff:total,played,eagles,birdies,pars,bogeys,doubles,pires};
 }
+// First hole without a score, or 17 if all done
+function getCurrentHoleIdx(scores){
+  const i=(scores||[]).findIndex(s=>s===""||s==null||s===undefined);
+  return i===-1?17:i;
+}
 
-// ─── COLOURS ─────────────────────────────────────────────────────────────────
-function theme(light) {
-  return light ? {
-    bg:"#f0f7f0", tx:"#1a3a1a", tx2:"#4a7a4a", tx3:"#2d6a2d",
-    card:"#ffffff", cardB:"#c0dcc0", cardH:"rgba(45,106,45,0.08)", cardHB:"#a0c8a0",
-    inp:"#ffffff", inpB:"#a0c8a0", acc:"#2d6a2d",
-    hdr:"rgba(255,255,255,0.97)", hdrB:"#c8dfc0",
-    nav:"rgba(255,255,255,0.97)", navB:"#c8dfc0",
-    btn:"linear-gradient(135deg,#2d6a2d,#1a4a1a)",
-    sep:"#d0e8d0"
-  } : {
-    bg:"#0a1628", tx:"#f0f9ff", tx2:"#475569", tx3:"#38bdf8",
-    card:"rgba(255,255,255,0.03)", cardB:"rgba(255,255,255,0.06)",
-    cardH:"rgba(56,189,248,0.08)", cardHB:"rgba(56,189,248,0.3)",
-    inp:"rgba(255,255,255,0.05)", inpB:"rgba(56,189,248,0.3)", acc:"#38bdf8",
-    hdr:"rgba(10,22,40,0.95)", hdrB:"rgba(56,189,248,0.15)",
-    nav:"rgba(8,18,34,0.97)", navB:"rgba(56,189,248,0.15)",
-    btn:"linear-gradient(135deg,#0ea5e9,#0284c7)",
-    sep:"rgba(255,255,255,0.05)"
+// ─── THEME ───────────────────────────────────────────────────────────────────
+function T(light){
+  return light?{
+    bg:"#f0f7f0",tx:"#1a3a1a",tx2:"#4a7a4a",tx3:"#2d6a2d",
+    card:"#ffffff",cardB:"#c0dcc0",cardH:"rgba(45,106,45,0.08)",cardHB:"#a0c8a0",
+    inp:"#ffffff",inpB:"#a0c8a0",acc:"#2d6a2d",
+    hdr:"rgba(255,255,255,0.97)",hdrB:"#c8dfc0",nav:"rgba(255,255,255,0.97)",navB:"#c8dfc0",
+    btn:"linear-gradient(135deg,#2d6a2d,#1a4a1a)",sep:"#d0e8d0",
+    scoreCard:"#f8fcf8"
+  }:{
+    bg:"#0a1628",tx:"#f0f9ff",tx2:"#475569",tx3:"#38bdf8",
+    card:"rgba(255,255,255,0.03)",cardB:"rgba(255,255,255,0.06)",
+    cardH:"rgba(56,189,248,0.08)",cardHB:"rgba(56,189,248,0.3)",
+    inp:"rgba(255,255,255,0.05)",inpB:"rgba(56,189,248,0.3)",acc:"#38bdf8",
+    hdr:"rgba(10,22,40,0.95)",hdrB:"rgba(56,189,248,0.15)",nav:"rgba(8,18,34,0.97)",navB:"rgba(56,189,248,0.15)",
+    btn:"linear-gradient(135deg,#0ea5e9,#0284c7)",sep:"rgba(255,255,255,0.05)",
+    scoreCard:"rgba(255,255,255,0.02)"
   };
 }
 
+// ─── GOLF SCORE SYMBOL ───────────────────────────────────────────────────────
+// Eagle: filled white circle, black text
+// Birdie: open circle, same text color
+// Par: plain number
+// Bogey: single square border
+// Double+: double square border
+function ScoreSymbol({score, par, size=28, light}){
+  if(score===""||score==null||score===undefined) return <span style={{color:light?"#c0d0c0":"#334155",fontSize:size*0.7,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>·</span>;
+  const d=getDiff(score,par);
+  const n=Number(score);
+  const fs=size*0.55;
+  const baseStyle={fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:fs,display:"inline-flex",alignItems:"center",justifyContent:"center",lineHeight:1};
+
+  if(d<=-2){
+    // Eagle: white filled circle, black text — double circle for albatross
+    return(
+      <span style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center",width:size,height:size}}>
+        {d<=-3&&<span style={{position:"absolute",width:size+6,height:size+6,borderRadius:"50%",border:"1.5px solid",borderColor:light?"#1a3a1a":"#e2e8f0"}}/>}
+        <span style={{width:size,height:size,borderRadius:"50%",background:light?"#1a3a1a":"#e2e8f0",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+          <span style={{...baseStyle,color:light?"#f0f7f0":"#0a1628"}}>{n}</span>
+        </span>
+      </span>
+    );
+  }
+  if(d===-1){
+    // Birdie: open circle
+    return(
+      <span style={{width:size,height:size,borderRadius:"50%",border:`1.5px solid`,borderColor:light?"#1a3a1a":"#e2e8f0",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+        <span style={{...baseStyle,color:light?"#1a3a1a":"#e2e8f0"}}>{n}</span>
+      </span>
+    );
+  }
+  if(d===0){
+    // Par: plain
+    return <span style={{...baseStyle,color:light?"#4a7a4a":"#94a3b8",width:size,height:size,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{n}</span>;
+  }
+  if(d===1){
+    // Bogey: single square
+    return(
+      <span style={{width:size,height:size,border:`1.5px solid`,borderColor:light?"#1a3a1a":"#e2e8f0",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+        <span style={{...baseStyle,color:light?"#1a3a1a":"#e2e8f0"}}>{n}</span>
+      </span>
+    );
+  }
+  // Double+: double square
+  return(
+    <span style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center",width:size+6,height:size+6}}>
+      <span style={{position:"absolute",width:size+6,height:size+6,border:`1.5px solid`,borderColor:light?"#1a3a1a":"#e2e8f0"}}/>
+      <span style={{width:size,height:size,border:`1.5px solid`,borderColor:light?"#1a3a1a":"#e2e8f0",display:"inline-flex",alignItems:"center",justifyContent:"center",background:"transparent"}}>
+        <span style={{...baseStyle,color:light?"#1a3a1a":"#e2e8f0"}}>{n}</span>
+      </span>
+    </span>
+  );
+}
+
+// ─── SCORECARD READONLY MODAL ─────────────────────────────────────────────────
+function ScorecardModal({team, onClose, light}){
+  const t=T(light);
+  const scores=team.scores||Array(18).fill("");
+  const stats=getStats(scores);
+  const front=HOLES.slice(0,9), back=HOLES.slice(9);
+  const frontPar=front.reduce((s,h)=>s+h.par,0);
+  const backPar=back.reduce((s,h)=>s+h.par,0);
+  const frontScore=front.reduce((s,h,i)=>{const v=scores[i];return v!==""&&v!=null?s+Number(v):s;},0);
+  const backScore=back.reduce((s,h,i)=>{const v=scores[i+9];return v!==""&&v!=null?s+Number(v):s;},0);
+
+  function HoleCell({h,score}){
+    return(
+      <td style={{textAlign:"center",padding:"6px 2px",borderRight:`1px solid ${t.cardB}`}}>
+        <ScoreSymbol score={score} par={h.par} size={26} light={light}/>
+      </td>
+    );
+  }
+
+  function Row({holes,scores,offset,label,rowPar,rowScore}){
+    const rowDiff=rowScore>0?rowScore-rowPar:null;
+    return(<>
+      <tr style={{borderBottom:`1px solid ${t.sep}`}}>
+        <td style={{padding:"4px 8px",fontSize:10,color:t.tx2,letterSpacing:1,fontWeight:700,borderRight:`1px solid ${t.cardB}`,whiteSpace:"nowrap"}}>{label}</td>
+        {holes.map((h,i)=>(
+          <td key={i} style={{textAlign:"center",padding:"4px 2px",fontSize:10,color:t.tx2,borderRight:`1px solid ${t.cardB}`}}>{h.hole}</td>
+        ))}
+        <td style={{padding:"4px 8px",fontSize:10,color:t.tx2,fontWeight:700,textAlign:"center"}}>Tot</td>
+      </tr>
+      <tr style={{borderBottom:`1px solid ${t.sep}`}}>
+        <td style={{padding:"4px 8px",fontSize:10,color:t.tx2,borderRight:`1px solid ${t.cardB}`}}>Par</td>
+        {holes.map((h,i)=>(
+          <td key={i} style={{textAlign:"center",padding:"4px 2px",fontSize:10,color:t.tx2,borderRight:`1px solid ${t.cardB}`}}>{h.par}</td>
+        ))}
+        <td style={{padding:"4px 8px",fontSize:11,color:t.tx2,fontWeight:700,textAlign:"center"}}>{rowPar}</td>
+      </tr>
+      <tr>
+        <td style={{padding:"8px 8px",fontSize:10,color:t.tx2,borderRight:`1px solid ${t.cardB}`}}>Score</td>
+        {holes.map((h,i)=>(
+          <HoleCell key={i} h={h} score={scores[offset+i]}/>
+        ))}
+        <td style={{padding:"8px",textAlign:"center"}}>
+          {rowScore>0?<span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,color:rowDiff<0?"#22c55e":rowDiff>0?"#f97316":t.tx2}}>{rowDiff!==null?fmtScore(rowDiff):"—"}</span>:<span style={{color:t.tx2,fontSize:12}}>—</span>}
+        </td>
+      </tr>
+    </>);
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.6)"}}/>
+      <div onClick={e=>e.stopPropagation()}
+        style={{position:"relative",width:"100%",maxWidth:600,background:t.bg,borderRadius:"20px 20px 0 0",maxHeight:"85vh",overflowY:"auto",animation:"modalIn 0.25s ease",paddingBottom:32}}>
+        {/* Handle */}
+        <div style={{display:"flex",justifyContent:"center",padding:"12px 0 8px"}}>
+          <div style={{width:40,height:4,borderRadius:2,background:t.cardB}}/>
+        </div>
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 20px 16px"}}>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:900,color:t.tx}}>🦈 {team.name}</div>
+            <div style={{fontSize:12,color:t.tx2,marginTop:2}}>{(team.members||[]).join(", ")||"—"}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:32,fontWeight:900,color:stats.diff<0?"#22c55e":stats.diff>0?"#f97316":t.tx2}}>
+              {stats.played>0?fmtScore(stats.diff):"—"}
+            </div>
+            <div style={{fontSize:11,color:t.tx2}}>{stats.played}/18 trous</div>
+          </div>
+        </div>
+
+        {/* Scorecard table */}
+        <div style={{overflowX:"auto",padding:"0 16px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",background:t.scoreCard,borderRadius:12,overflow:"hidden",border:`1px solid ${t.cardB}`,fontSize:12}}>
+            <tbody>
+              <Row holes={front} scores={scores} offset={0} label="ALLER" rowPar={frontPar} rowScore={frontScore}/>
+            </tbody>
+          </table>
+          <div style={{height:8}}/>
+          <table style={{width:"100%",borderCollapse:"collapse",background:t.scoreCard,borderRadius:12,overflow:"hidden",border:`1px solid ${t.cardB}`,fontSize:12}}>
+            <tbody>
+              <Row holes={back} scores={scores} offset={9} label="RETOUR" rowPar={backPar} rowScore={backScore}/>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Legend */}
+        <div style={{padding:"16px 20px 0",display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
+          {[
+            {label:"Eagle",el:<ScoreSymbol score={2} par={4} size={22} light={light}/>},
+            {label:"Birdie",el:<ScoreSymbol score={3} par={4} size={22} light={light}/>},
+            {label:"Par",el:<ScoreSymbol score={4} par={4} size={22} light={light}/>},
+            {label:"Bogey",el:<ScoreSymbol score={5} par={4} size={22} light={light}/>},
+            {label:"Double+",el:<ScoreSymbol score={6} par={4} size={22} light={light}/>},
+          ].map(({label,el})=>(
+            <div key={label} style={{display:"flex",alignItems:"center",gap:6}}>
+              {el}<span style={{fontSize:11,color:t.tx2}}>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Stat pills */}
+        {stats.played>0&&(
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"16px 20px 0",justifyContent:"center"}}>
+            {stats.eagles>0&&<StatPill emoji="🦅" count={stats.eagles} color="#f59e0b" label="EAGLE"/>}
+            {stats.birdies>0&&<StatPill emoji="🐦" count={stats.birdies} color="#22c55e" label="BIRDIE"/>}
+            {stats.pars>0&&<StatPill emoji="🟰" count={stats.pars} color={t.tx2} label="PAR"/>}
+            {stats.bogeys>0&&<StatPill emoji="😬" count={stats.bogeys} color="#f97316" label="BOGEY"/>}
+            {stats.doubles>0&&<StatPill emoji="💀" count={stats.doubles} color="#ef4444" label="DOUBLE"/>}
+            {stats.pires>0&&<StatPill emoji="🔥" count={stats.pires} color="#dc2626" label="PIRE"/>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── TOAST ───────────────────────────────────────────────────────────────────
-const TOASTS = {
-  eagle: {bg:"rgba(245,158,11,0.95)", border:"#f59e0b", icon:"🦅", label:"EAGLE!"},
-  birdie:{bg:"rgba(34,197,94,0.95)",  border:"#22c55e", icon:"🐦", label:"BIRDIE!"},
-  bogey: {bg:"rgba(249,115,22,0.9)",  border:"#f97316", icon:"😬", label:"BOGEY"},
-  double:{bg:"rgba(239,68,68,0.9)",   border:"#ef4444", icon:"💀", label:"DOUBLE!"},
-  pire:  {bg:"rgba(220,38,38,0.9)",   border:"#dc2626", icon:"🔥", label:"AU SECOURS!"},
+const TOASTS={
+  eagle:{bg:"rgba(245,158,11,0.95)",border:"#f59e0b",icon:"🦅",label:"EAGLE!"},
+  birdie:{bg:"rgba(34,197,94,0.95)",border:"#22c55e",icon:"🐦",label:"BIRDIE!"},
+  bogey:{bg:"rgba(249,115,22,0.9)",border:"#f97316",icon:"😬",label:"BOGEY"},
+  double:{bg:"rgba(239,68,68,0.9)",border:"#ef4444",icon:"💀",label:"DOUBLE!"},
+  pire:{bg:"rgba(220,38,38,0.9)",border:"#dc2626",icon:"🔥",label:"AU SECOURS!"},
 };
-function ToastContainer({toasts,onDismiss}) {
-  if(!toasts.length) return null;
-  return (<>
+function ToastContainer({toasts,onDismiss}){
+  if(!toasts.length)return null;
+  return(<>
     <div onClick={()=>toasts.forEach(t=>onDismiss(t.id))} style={{position:"fixed",inset:0,zIndex:998,pointerEvents:"all"}}/>
     <div style={{position:"fixed",top:80,left:0,right:0,zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",gap:8,pointerEvents:"none"}}>
       {toasts.map(t=>(
@@ -146,9 +305,9 @@ function ToastContainer({toasts,onDismiss}) {
   </>);
 }
 
-// ─── SPINNER / ENTRY ─────────────────────────────────────────────────────────
-function Spinner() {
-  return (
+// ─── SPINNER ─────────────────────────────────────────────────────────────────
+function Spinner(){
+  return(
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a1628"}}>
       <div style={{textAlign:"center"}}>
         <div style={{fontSize:64,animation:"spin 1s linear infinite",display:"inline-block"}}>🦈</div>
@@ -158,14 +317,12 @@ function Spinner() {
   );
 }
 
-function EntryScreen({onEnter, teams}) {
-  const [name,setName]=useState(""), [shake,setShake]=useState(false);
-  const [step,setStep]=useState("name"), [newTeam,setNewTeam]=useState("");
-  function next() {
-    if(!name.trim()){setShake(true);setTimeout(()=>setShake(false),500);return;}
-    setStep("team");
-  }
-  return (
+// ─── ENTRY ───────────────────────────────────────────────────────────────────
+function EntryScreen({onEnter,teams}){
+  const [name,setName]=useState(""),[ shake,setShake]=useState(false);
+  const [step,setStep]=useState("name"),[newTeam,setNewTeam]=useState("");
+  function next(){if(!name.trim()){setShake(true);setTimeout(()=>setShake(false),500);return;}setStep("team");}
+  return(
     <div style={{minHeight:"100vh",background:"#0a1628",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",overflow:"hidden",position:"relative",padding:"0 24px"}}>
       <div style={{position:"absolute",inset:0,overflow:"hidden",opacity:0.07}}>
         {[...Array(6)].map((_,i)=><div key={i} style={{position:"absolute",bottom:`${i*12}%`,left:"-20%",right:"-20%",height:200,borderRadius:"50%",border:"2px solid #38bdf8",animation:`wave ${3+i*0.5}s ease-in-out infinite alternate`,animationDelay:`${i*0.3}s`}}/>)}
@@ -174,7 +331,6 @@ function EntryScreen({onEnter, teams}) {
         <div style={{marginBottom:8}}><span style={{fontSize:80,filter:"drop-shadow(0 0 30px #38bdf8)"}}>🦈</span></div>
         <h1 style={{fontSize:"clamp(52px,12vw,96px)",fontWeight:900,letterSpacing:2,margin:0,lineHeight:0.9,background:"linear-gradient(135deg,#38bdf8 0%,#fff 50%,#7dd3fc 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",textTransform:"uppercase"}}>REQUIN<br/>OPEN</h1>
         <p style={{color:"#475569",fontSize:13,letterSpacing:6,textTransform:"uppercase",margin:"12px 0 32px"}}>⛳ Lac Mégantic Golf Club ⛳</p>
-
         {step==="name"&&(
           <div style={{background:"rgba(255,255,255,0.04)",borderRadius:16,padding:28,border:"1px solid rgba(56,189,248,0.2)"}}>
             <p style={{color:"#94a3b8",fontSize:13,letterSpacing:3,textTransform:"uppercase",margin:"0 0 14px"}}>Ton nom, champion</p>
@@ -184,7 +340,6 @@ function EntryScreen({onEnter, teams}) {
             <button onClick={next} style={{width:"100%",marginTop:14,padding:"15px",fontSize:19,fontWeight:900,background:"linear-gradient(135deg,#0ea5e9,#0284c7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",letterSpacing:3,textTransform:"uppercase",fontFamily:"'Barlow Condensed',sans-serif"}}>CONTINUER →</button>
           </div>
         )}
-
         {step==="team"&&(
           <div style={{background:"rgba(255,255,255,0.04)",borderRadius:16,padding:28,border:"1px solid rgba(56,189,248,0.2)",textAlign:"left"}}>
             <div style={{textAlign:"center",marginBottom:20}}>
@@ -226,9 +381,9 @@ function EntryScreen({onEnter, teams}) {
 }
 
 // ─── STAT PILL ───────────────────────────────────────────────────────────────
-function StatPill({emoji,count,color,label}) {
-  if(!count) return null;
-  return (
+function StatPill({emoji,count,color,label}){
+  if(!count)return null;
+  return(
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
       <div style={{background:`${color}22`,border:`1px solid ${color}55`,borderRadius:8,padding:"3px 10px",display:"flex",alignItems:"center",gap:4}}>
         <span style={{fontSize:13}}>{emoji}</span>
@@ -239,80 +394,77 @@ function StatPill({emoji,count,color,label}) {
   );
 }
 
-// ─── HOLE-BY-HOLE SCORECARD ───────────────────────────────────────────────────
-function HoleScorecard({team, onUpdateScore, onUpdateNP, nearestPin, light, teams}) {
-  const T = theme(light);
-  const scores = team.scores||Array(18).fill("");
+// ─── HOLE SCORECARD (capitaine) ──────────────────────────────────────────────
+function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,teams}){
+  const t=T(light);
+  const scores=team.scores||Array(18).fill("");
+  const firstEmpty=getCurrentHoleIdx(scores);
+  const [holeIdx,setHoleIdx]=useState(firstEmpty);
+  const [picked,setPicked]=useState(null);
+  const [pickMode,setPickMode]=useState(false);
+  const [customVal,setCustomVal]=useState("");
 
-  // Find current hole: first unsaved, or last hole if all done
-  const firstEmpty = scores.findIndex(s=>s===""||s==null||s===undefined);
-  const [holeIdx, setHoleIdx] = useState(firstEmpty===-1?17:firstEmpty);
-  const [picked, setPicked] = useState(null); // selected score before confirm
-  const [pickMode, setPickMode] = useState(false); // custom score input
-  const [customVal, setCustomVal] = useState("");
+  const hole=HOLES[holeIdx];
+  const isPar3=hole.par===3;
+  const currentScore=scores[holeIdx];
+  const hasScore=currentScore!==""&&currentScore!=null&&currentScore!==undefined;
+  const stats=getStats(scores);
+  const maxReachable=Math.min(firstEmpty,17);
+  const scoreOptions=[];
+  for(let s=Math.max(1,hole.par-2);s<=hole.par+3;s++)scoreOptions.push(s);
+  const displayScore=picked!==null?picked:(hasScore?Number(currentScore):null);
+  const npEntry=nearestPin?.[hole.hole];
 
-  const hole = HOLES[holeIdx];
-  const isPar3 = hole.par===3;
-  const currentScore = scores[holeIdx];
-  const hasScore = currentScore!==""&&currentScore!=null&&currentScore!==undefined;
-  const stats = getStats(scores);
+  // Running cumul up to current displayed hole
+  const cumulDiff=scores.slice(0,holeIdx+1).reduce((acc,s,i)=>{
+    if(s===""||s==null||s===undefined)return acc;
+    return acc+(Number(s)-HOLES[i].par);
+  },0);
+  const holesCountedForCumul=scores.slice(0,holeIdx+1).filter(s=>s!==""&&s!=null&&s!==undefined).length;
 
-  // The furthest hole the user can navigate to = first empty + 1 (can't skip ahead)
-  const maxReachable = firstEmpty===-1?17:Math.min(firstEmpty, 17);
-
-  // Score buttons: par-2 to par+3, minimum 1
-  const scoreOptions = [];
-  for(let s=Math.max(1,hole.par-2); s<=hole.par+3; s++) scoreOptions.push(s);
-
-  function handleConfirm() {
-    const val = picked!==null?picked:(hasScore?Number(currentScore):null);
-    if(val===null) return;
-    const next=[...scores]; next[holeIdx]=val;
+  function handleConfirm(){
+    if(!canEdit)return;
+    const val=picked!==null?picked:(hasScore?Number(currentScore):null);
+    if(val===null)return;
+    const next=[...scores];next[holeIdx]=val;
     onUpdateScore(next);
-    setPicked(null); setPickMode(false); setCustomVal("");
-    // Advance to next empty hole
-    const nextEmpty = next.findIndex((s,i)=>i>holeIdx&&(s===""||s==null||s===undefined));
-    if(nextEmpty!==-1) setHoleIdx(nextEmpty);
-    else if(holeIdx<17) setHoleIdx(holeIdx+1);
+    setPicked(null);setPickMode(false);setCustomVal("");
+    const nextEmpty=next.findIndex((s,i)=>i>holeIdx&&(s===""||s==null||s===undefined));
+    if(nextEmpty!==-1)setHoleIdx(nextEmpty);
+    else if(holeIdx<17)setHoleIdx(holeIdx+1);
   }
 
-  function handleCustomConfirm() {
+  function handleCustomConfirm(){
     const v=parseInt(customVal);
-    if(isNaN(v)||v<1) return;
-    setPicked(v); setPickMode(false); setCustomVal("");
+    if(isNaN(v)||v<1)return;
+    setPicked(v);setPickMode(false);setCustomVal("");
   }
 
-  const displayScore = picked!==null?picked:(hasScore?Number(currentScore):null);
-  const lbl = displayScore!==null?scoreLabel(displayScore,hole.par):null;
-
-  // Nearest pin for this par3
-  const npEntry = nearestPin?.[hole.hole];
-
-  return (
+  return(
     <div style={{animation:"slideUp 0.25s ease"}}>
 
-      {/* Progress bar */}
+      {/* Progress bar + dots */}
       <div style={{marginBottom:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <span style={{color:T.tx2,fontSize:11,letterSpacing:2}}>PROGRESSION</span>
-          <span style={{color:T.tx,fontSize:12,fontWeight:700}}>{stats.played}/18 trous · {stats.played>0?fmtScore(stats.diff):"—"}</span>
+          <span style={{color:t.tx2,fontSize:11,letterSpacing:2}}>PROGRESSION</span>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:stats.diff<0?"#22c55e":stats.diff>0?"#f97316":t.tx2}}>
+            {stats.played>0?fmtScore(stats.diff):"—"}
+            <span style={{fontSize:11,color:t.tx2,fontWeight:400}}> · {stats.played}/18</span>
+          </span>
         </div>
-        <div style={{height:4,background:T.cardB,borderRadius:2,overflow:"hidden"}}>
-          <div style={{height:"100%",width:`${(stats.played/18)*100}%`,background:T.acc,borderRadius:2,transition:"width 0.3s"}}/>
+        <div style={{height:5,background:t.cardB,borderRadius:3,overflow:"hidden",marginBottom:8}}>
+          <div style={{height:"100%",width:`${(stats.played/18)*100}%`,background:t.acc,borderRadius:3,transition:"width 0.4s"}}/>
         </div>
-        {/* Mini dots */}
-        <div style={{display:"flex",gap:3,marginTop:6,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
           {HOLES.map((h,i)=>{
-            const s=scores[i];
-            const done=s!==""&&s!=null&&s!==undefined;
-            const active=i===holeIdx;
-            const reachable=i<=maxReachable;
-            const d=done?scoreDiff(Number(s),h.par):null;
-            const dotColor=done?(d<=-2?"#f59e0b":d===-1?"#22c55e":d===0?T.tx2:d===1?"#f97316":"#ef4444"):(active?T.acc:T.cardB);
-            return (
+            const s=scores[i],done=s!==""&&s!=null&&s!==undefined,active=i===holeIdx;
+            const reachable=i<=maxReachable||done;
+            const d=done?getDiff(Number(s),h.par):null;
+            const dotColor=done?(d<=-2?"#f59e0b":d===-1?"#22c55e":d===0?t.tx2:d===1?"#f97316":"#ef4444"):(active?t.acc:t.cardB);
+            return(
               <div key={i} onClick={()=>reachable&&setHoleIdx(i)}
-                style={{width:active?20:14,height:active?20:14,borderRadius:"50%",background:dotColor,cursor:reachable?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",border:active?`2px solid ${T.acc}`:"none",flexShrink:0}}>
-                {active&&<span style={{fontSize:8,fontWeight:900,color:done?T.bg:"#fff"}}>{h.hole}</span>}
+                style={{width:active?22:15,height:active?22:15,borderRadius:active?"50%":"50%",background:dotColor,cursor:reachable?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",border:active?`2px solid ${t.acc}`:"none",flexShrink:0}}>
+                {active&&<span style={{fontSize:8,fontWeight:900,color:done?t.bg:"#fff"}}>{h.hole}</span>}
               </div>
             );
           })}
@@ -320,263 +472,288 @@ function HoleScorecard({team, onUpdateScore, onUpdateNP, nearestPin, light, team
       </div>
 
       {/* Hole card */}
-      <div style={{background:T.card,border:`1px solid ${isPar3?T.acc:T.cardB}`,borderRadius:20,overflow:"hidden",marginBottom:12}}>
+      <div style={{background:t.card,border:`2px solid ${isPar3?t.acc:t.cardB}`,borderRadius:20,overflow:"hidden",marginBottom:12}}>
 
         {/* Hole header */}
-        <div style={{background:isPar3?(light?"rgba(45,106,45,0.15)":"rgba(56,189,248,0.1)"):(light?"rgba(45,106,45,0.08)":"rgba(255,255,255,0.04)"),padding:"16px 20px",borderBottom:`1px solid ${T.cardB}`}}>
+        <div style={{background:isPar3?(light?"rgba(45,106,45,0.15)":"rgba(56,189,248,0.1)"):(light?"rgba(45,106,45,0.06)":"rgba(255,255,255,0.03)"),padding:"14px 20px",borderBottom:`1px solid ${t.cardB}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:38,fontWeight:900,color:T.tx,lineHeight:1}}>
-                TROU #{hole.hole}
-              </div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:42,fontWeight:900,color:t.tx,lineHeight:1}}>TROU #{hole.hole}</div>
               <div style={{display:"flex",gap:12,marginTop:4,alignItems:"center"}}>
-                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:700,color:T.acc}}>Par {hole.par}</span>
-                <span style={{fontSize:13,color:T.tx2}}>{hole.yards} yards</span>
-                {isPar3&&<span style={{fontSize:13,color:T.acc,fontWeight:700}}>📍 Nearest Pin</span>}
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:700,color:t.acc}}>Par {hole.par}</span>
+                <span style={{fontSize:13,color:t.tx2}}>{hole.yards} verges</span>
+                {isPar3&&<span style={{fontSize:13,color:t.acc,fontWeight:700,letterSpacing:1}}>📍 NP</span>}
               </div>
             </div>
-            {/* Nav arrows */}
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>holeIdx>0&&setHoleIdx(holeIdx-1)} disabled={holeIdx===0}
-                style={{width:40,height:40,borderRadius:"50%",background:holeIdx>0?T.cardH:"transparent",border:`1px solid ${T.cardB}`,color:holeIdx>0?T.tx:T.cardB,fontSize:18,cursor:holeIdx>0?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>
-              <button onClick={()=>holeIdx<maxReachable&&setHoleIdx(holeIdx+1)} disabled={holeIdx>=maxReachable}
-                style={{width:40,height:40,borderRadius:"50%",background:holeIdx<maxReachable?T.cardH:"transparent",border:`1px solid ${T.cardB}`,color:holeIdx<maxReachable?T.tx:T.cardB,fontSize:18,cursor:holeIdx<maxReachable?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>→</button>
+            {/* Cumul running */}
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:10,color:t.tx2,letterSpacing:1,marginBottom:2}}>CUMUL</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,color:cumulDiff<0?"#22c55e":cumulDiff>0?"#f97316":t.tx2,lineHeight:1}}>
+                {holesCountedForCumul>0?fmtScore(cumulDiff):"—"}
+              </div>
             </div>
+          </div>
+          {/* Nav */}
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <button onClick={()=>holeIdx>0&&setHoleIdx(holeIdx-1)} disabled={holeIdx===0}
+              style={{flex:1,padding:"8px",borderRadius:10,background:holeIdx>0?t.cardH:"transparent",border:`1px solid ${t.cardB}`,color:holeIdx>0?t.tx:t.cardB,fontSize:14,cursor:holeIdx>0?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>← PRÉC</button>
+            <button onClick={()=>holeIdx<maxReachable&&setHoleIdx(holeIdx+1)} disabled={holeIdx>=maxReachable}
+              style={{flex:1,padding:"8px",borderRadius:10,background:holeIdx<maxReachable?t.cardH:"transparent",border:`1px solid ${t.cardB}`,color:holeIdx<maxReachable?t.tx:t.cardB,fontSize:14,cursor:holeIdx<maxReachable?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>SUIV →</button>
           </div>
         </div>
 
         {/* Score picker */}
         <div style={{padding:"20px"}}>
-          {pickMode ? (
+          {!canEdit?(
+            <div style={{textAlign:"center",padding:"20px 0"}}>
+              <div style={{fontSize:40,marginBottom:8}}>
+                {hasScore?<ScoreSymbol score={Number(currentScore)} par={hole.par} size={56} light={light}/>:<span style={{color:t.tx2}}>—</span>}
+              </div>
+              {hasScore&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,color:t.tx2,letterSpacing:2}}>Score saisit par le capitaine</div>}
+              {!hasScore&&<div style={{fontSize:13,color:t.tx2}}>Pas encore saisi</div>}
+            </div>
+          ):pickMode?(
             <div>
-              <p style={{color:T.tx2,fontSize:12,letterSpacing:2,marginBottom:10}}>SCORE INHABITUEL</p>
+              <p style={{color:t.tx2,fontSize:12,letterSpacing:2,marginBottom:10}}>SCORE INHABITUEL</p>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="number" min="1" max="20" value={customVal} onChange={e=>setCustomVal(e.target.value)}
-                  placeholder="Ex: 9" autoFocus
-                  style={{flex:1,padding:"14px",fontSize:28,fontWeight:900,textAlign:"center",background:T.inp,border:`2px solid ${T.acc}`,borderRadius:12,color:T.tx,outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}}/>
-                <button onClick={handleCustomConfirm}
-                  style={{padding:"14px 20px",background:T.btn,border:"none",borderRadius:12,color:"#fff",cursor:"pointer",fontSize:16,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>OK</button>
-                <button onClick={()=>{setPickMode(false);setCustomVal("");}}
-                  style={{padding:"14px",background:"none",border:`1px solid ${T.cardB}`,borderRadius:12,color:T.tx2,cursor:"pointer",fontSize:14}}>✕</button>
+                <input type="number" min="1" max="20" value={customVal} onChange={e=>setCustomVal(e.target.value)} placeholder="Ex: 9" autoFocus
+                  style={{flex:1,padding:"14px",fontSize:28,fontWeight:900,textAlign:"center",background:t.inp,border:`2px solid ${t.acc}`,borderRadius:12,color:t.tx,outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                <button onClick={handleCustomConfirm} style={{padding:"14px 20px",background:t.btn,border:"none",borderRadius:12,color:"#fff",cursor:"pointer",fontSize:16,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>OK</button>
+                <button onClick={()=>{setPickMode(false);setCustomVal("");}} style={{padding:"14px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:12,color:t.tx2,cursor:"pointer",fontSize:14}}>✕</button>
               </div>
             </div>
-          ) : (
+          ):(
             <div>
               {/* Score buttons */}
-              <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16}}>
+              <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:14}}>
                 {scoreOptions.map(s=>{
-                  const lbl2=scoreLabel(s,hole.par);
+                  const isPar=s===hole.par;
                   const isSelected=displayScore===s;
-                  return (
+                  const d=getDiff(s,hole.par);
+                  const btnColor=d<=-2?"#f59e0b":d===-1?"#22c55e":d===0?t.acc:d===1?"#f97316":"#ef4444";
+                  return(
                     <button key={s} onClick={()=>setPicked(s)}
-                      style={{flex:1,aspectRatio:"1",maxWidth:64,background:isSelected?lbl2.color:T.cardH,border:`2px solid ${isSelected?lbl2.color:T.cardB}`,borderRadius:14,color:isSelected?"#fff":T.tx,fontSize:28,fontWeight:900,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Barlow Condensed',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isSelected?`0 4px 16px ${lbl2.color}66`:"none"}}>
+                      style={{
+                        flex:1,aspectRatio:"1",maxWidth:60,
+                        background:isSelected?btnColor:(isPar?(light?"rgba(45,106,45,0.15)":"rgba(56,189,248,0.15)"):t.cardH),
+                        border:isPar?`3px solid ${t.acc}`:`2px solid ${isSelected?btnColor:t.cardB}`,
+                        borderRadius:14,
+                        color:isSelected?"#fff":t.tx,
+                        fontSize:26,fontWeight:900,cursor:"pointer",
+                        transition:"all 0.15s",fontFamily:"'Barlow Condensed',sans-serif",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        boxShadow:isSelected?`0 4px 16px ${btnColor}66`:isPar?`0 0 0 1px ${t.acc}44`:"none"
+                      }}>
                       {s}
                     </button>
                   );
                 })}
-                {/* Pick button */}
                 <button onClick={()=>setPickMode(true)}
-                  style={{flex:1,aspectRatio:"1",maxWidth:64,background:T.cardH,border:`2px solid ${T.cardB}`,borderRadius:14,color:T.tx2,fontSize:20,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  style={{flex:1,aspectRatio:"1",maxWidth:60,background:t.cardH,border:`2px solid ${t.cardB}`,borderRadius:14,color:t.tx2,fontSize:18,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",display:"flex",alignItems:"center",justifyContent:"center"}}>
                   ···
                 </button>
               </div>
-
               {/* Score label */}
-              <div style={{textAlign:"center",marginBottom:16,minHeight:28}}>
-                {lbl&&<span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color:lbl.color,letterSpacing:2}}>{lbl.label}</span>}
+              <div style={{textAlign:"center",marginBottom:14,minHeight:24}}>
+                {displayScore!==null&&(()=>{
+                  const d=getDiff(displayScore,hole.par);
+                  const lbl=d<=-2?"Eagle 🦅":d===-1?"Birdie 🐦":d===0?"Par":d===1?"Bogey":d===2?"Double 😬":"Au secours 🔥";
+                  const col=d<=-2?"#f59e0b":d===-1?"#22c55e":d===0?t.tx2:d===1?"#f97316":"#ef4444";
+                  return<span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:900,color:col,letterSpacing:2}}>{lbl}</span>;
+                })()}
               </div>
-
-              {/* Confirm button */}
+              {/* Confirm */}
               <button onClick={handleConfirm} disabled={displayScore===null}
-                style={{width:"100%",padding:"16px",background:displayScore!==null?T.btn:"transparent",border:displayScore!==null?"none":`1px solid ${T.cardB}`,borderRadius:14,color:displayScore!==null?"#fff":T.tx2,cursor:displayScore!==null?"pointer":"default",fontSize:18,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,transition:"all 0.2s"}}>
+                style={{width:"100%",padding:"16px",background:displayScore!==null?t.btn:"transparent",border:displayScore!==null?"none":`1px solid ${t.cardB}`,borderRadius:14,color:displayScore!==null?"#fff":t.tx2,cursor:displayScore!==null?"pointer":"default",fontSize:18,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,transition:"all 0.2s"}}>
                 {hasScore&&picked===null?"MODIFIER ✓":`CONFIRMER ${displayScore!==null?`(${displayScore} coups)`:""}`}
               </button>
             </div>
           )}
         </div>
 
-        {/* Nearest pin section — par 3 only */}
+        {/* Nearest pin section */}
         {isPar3&&(
-          <div style={{borderTop:`1px solid ${T.cardB}`,padding:"16px 20px",background:light?"rgba(45,106,45,0.04)":"rgba(56,189,248,0.03)"}}>
+          <div style={{borderTop:`1px solid ${t.cardB}`,padding:"16px 20px",background:light?"rgba(45,106,45,0.04)":"rgba(56,189,248,0.03)"}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12}}>
               <span style={{fontSize:16}}>📍</span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:T.acc,letterSpacing:2}}>NEAREST PIN — {NP_PRIZE}$</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:t.acc,letterSpacing:2}}>NEAREST PIN — {NP_PRIZE}$</span>
             </div>
             {npEntry?.teamName?(
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
-                  <div style={{fontWeight:700,color:T.tx,fontSize:15}}>🏆 {npEntry.winner||npEntry.teamName}</div>
-                  <div style={{fontSize:11,color:T.tx2,marginTop:2}}>{npEntry.winner?npEntry.teamName:""}</div>
+                  <div style={{fontWeight:700,color:t.tx,fontSize:15}}>🏆 {npEntry.winner||npEntry.teamName}</div>
+                  {npEntry.winner&&<div style={{fontSize:11,color:t.tx2,marginTop:2}}>{npEntry.teamName}</div>}
                 </div>
-                <button onClick={()=>onUpdateNP(hole.hole,null,null,null)}
-                  style={{fontSize:11,color:T.tx2,background:"none",border:`1px solid ${T.cardB}`,borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>✏️ changer</button>
+                {canEdit&&<button onClick={()=>onUpdateNP(hole.hole,null,null,null)} style={{fontSize:11,color:t.tx2,background:"none",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>✏️ changer</button>}
               </div>
+            ):canEdit?(
+              <NearestPinPicker teams={teams} holeNum={hole.hole} onSave={onUpdateNP} t={t}/>
             ):(
-              <NearestPinPicker teams={teams} holeNum={hole.hole} onSave={onUpdateNP} T={T}/>
+              <p style={{color:t.tx2,fontSize:12,fontStyle:"italic"}}>Pas encore attribué</p>
             )}
           </div>
         )}
       </div>
 
-      {/* Scorecard recap */}
-      <ScoreRecap scores={scores} light={light}/>
+      {/* Mini scorecard recap */}
+      <MiniScorecard scores={scores} light={light} currentHole={holeIdx}/>
     </div>
   );
 }
 
-function NearestPinPicker({holeNum, onSave, T, teams, allTeams}) {
-  // allTeams = use teams from parent via context (passed as prop workaround)
+function NearestPinPicker({teams,holeNum,onSave,t}){
   const [selTeamId,setSelTeamId]=useState("");
   const [selMember,setSelMember]=useState("");
   const team=teams.find(t=>t.id===selTeamId);
-  if(!teams.length) return <p style={{color:T.tx2,fontSize:12}}>Aucune équipe disponible</p>;
-  return (
+  if(!teams.length)return<p style={{color:t.tx2,fontSize:12}}>Aucune équipe.</p>;
+  return(
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
       <select value={selTeamId} onChange={e=>{setSelTeamId(e.target.value);setSelMember("");}}
-        style={{padding:"8px 10px",background:T.inp,border:`1px solid ${T.inpB}`,borderRadius:8,color:T.tx,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
+        style={{padding:"8px 10px",background:t.inp,border:`1px solid ${t.inpB}`,borderRadius:8,color:t.tx,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
         <option value="">-- Équipe --</option>
-        {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+        {teams.map(tm=><option key={tm.id} value={tm.id}>{tm.name}</option>)}
       </select>
       {team&&(
         <select value={selMember} onChange={e=>setSelMember(e.target.value)}
-          style={{padding:"8px 10px",background:T.inp,border:`1px solid ${T.inpB}`,borderRadius:8,color:T.tx,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
+          style={{padding:"8px 10px",background:t.inp,border:`1px solid ${t.inpB}`,borderRadius:8,color:t.tx,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
           <option value="">-- Joueur (optionnel) --</option>
           {(team.members||[]).map(m=><option key={m} value={m}>{m}</option>)}
         </select>
       )}
       <button onClick={()=>selTeamId&&onSave(holeNum,selMember||null,selTeamId,team?.name)}
-        style={{padding:"10px",background:T.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+        style={{padding:"10px",background:t.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
         ✓ SAUVER NEAREST PIN
       </button>
     </div>
   );
 }
 
-function ScoreRecap({scores,light}) {
-  const T=theme(light);
-  const played=scores.filter(s=>s!==""&&s!=null&&s!==undefined);
-  if(!played.length) return null;
-  return (
-    <div style={{background:T.card,border:`1px solid ${T.cardB}`,borderRadius:14,padding:"14px 16px",marginTop:8}}>
-      <p style={{color:T.tx2,fontSize:11,letterSpacing:2,marginBottom:10}}>RÉCAP DU PARCOURS</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:3,marginBottom:6}}>
-        {HOLES.slice(0,9).map((h,i)=>{
-          const s=scores[i]; const done=s!==""&&s!=null&&s!==undefined;
-          const lbl=done?scoreLabel(Number(s),h.par):null;
-          return (
-            <div key={i} style={{textAlign:"center"}}>
-              <div style={{fontSize:9,color:T.tx2,marginBottom:2}}>{h.hole}</div>
-              <div style={{fontSize:13,fontWeight:900,color:done?lbl.color:T.cardB,fontFamily:"'Barlow Condensed',sans-serif"}}>{done?s:"·"}</div>
-            </div>
-          );
-        })}
+// ─── MINI SCORECARD (dans scorecard page, en bas) ────────────────────────────
+function MiniScorecard({scores,light,currentHole}){
+  const t=T(light);
+  if(!(scores||[]).some(s=>s!==""&&s!=null&&s!==undefined))return null;
+  const front=HOLES.slice(0,9),back=HOLES.slice(9);
+  return(
+    <div style={{background:t.scoreCard,border:`1px solid ${t.cardB}`,borderRadius:14,overflow:"hidden"}}>
+      <div style={{padding:"10px 14px",borderBottom:`1px solid ${t.cardB}`}}>
+        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:t.tx2,letterSpacing:2}}>RÉCAP</span>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:3}}>
-        {HOLES.slice(9).map((h,i)=>{
-          const s=scores[i+9]; const done=s!==""&&s!=null&&s!==undefined;
-          const lbl=done?scoreLabel(Number(s),h.par):null;
-          return (
-            <div key={i} style={{textAlign:"center"}}>
-              <div style={{fontSize:9,color:T.tx2,marginBottom:2}}>{h.hole}</div>
-              <div style={{fontSize:13,fontWeight:900,color:done?lbl.color:T.cardB,fontFamily:"'Barlow Condensed',sans-serif"}}>{done?s:"·"}</div>
-            </div>
-          );
-        })}
-      </div>
+      {[{holes:front,offset:0,label:"1-9"},{holes:back,offset:9,label:"10-18"}].map(({holes,offset,label})=>(
+        <div key={label} style={{padding:"10px 14px",borderBottom:`1px solid ${t.sep}`}}>
+          <div style={{fontSize:10,color:t.tx2,letterSpacing:1,marginBottom:6}}>{label}</div>
+          <div style={{display:"flex",gap:4,justifyContent:"space-between"}}>
+            {holes.map((h,i)=>{
+              const s=scores[offset+i];
+              const isCurrent=(offset+i)===currentHole;
+              return(
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <span style={{fontSize:9,color:isCurrent?t.acc:t.tx2,fontWeight:isCurrent?900:400}}>{h.hole}</span>
+                  <ScoreSymbol score={s} par={h.par} size={22} light={light}/>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ─── LEADERBOARD ─────────────────────────────────────────────────────────────
-function Leaderboard({teams, nearestPin, light}) {
-  const T=theme(light);
-  const ranked=[...teams].map(t=>({...t,...getStats(t.scores||[])}))
+function Leaderboard({teams,nearestPin,light,onViewScores}){
+  const t=T(light);
+  const ranked=[...teams].map(tm=>({...tm,...getStats(tm.scores||[])}))
     .sort((a,b)=>{
-      if(!a.played&&!b.played) return 0;
-      if(!a.played) return 1; if(!b.played) return -1;
+      if(!a.played&&!b.played)return 0;
+      if(!a.played)return 1;if(!b.played)return -1;
       return a.diff-b.diff;
     });
-
-  // Nearest pin summary
   const npWinnings={};
   PAR3S.forEach(h=>{
     const e=nearestPin?.[h.hole];
     if(e?.teamName){const k=e.winner||e.teamName;npWinnings[k]=(npWinnings[k]||0)+NP_PRIZE;}
   });
 
-  return (
+  return(
     <div>
-      {/* Team standings */}
       {!ranked.length&&(
-        <div style={{textAlign:"center",padding:"40px 20px",color:T.tx2}}>
+        <div style={{textAlign:"center",padding:"40px 20px",color:t.tx2}}>
           <div style={{fontSize:48}}>⛳</div>
           <p style={{fontSize:14,letterSpacing:2,marginTop:12}}>AUCUNE ÉQUIPE POUR L'INSTANT</p>
         </div>
       )}
       {ranked.map((team,idx)=>{
         const isLeading=idx===0&&team.played>0;
-        const cardBg=isLeading?T.cardH:T.card;
-        const cardBdr=isLeading?T.cardHB:T.cardB;
-        return (
-          <div key={team.id} style={{padding:"14px 16px",marginBottom:10,background:cardBg,border:`1px solid ${cardBdr}`,borderRadius:14}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:team.played>0?10:0}}>
+        const currentHoleNum=getCurrentHoleIdx(team.scores||[]);
+        const currentHole=HOLES[Math.min(currentHoleNum,17)];
+        return(
+          <div key={team.id} style={{padding:"14px 16px",marginBottom:10,background:isLeading?t.cardH:t.card,border:`1px solid ${isLeading?t.cardHB:t.cardB}`,borderRadius:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
               <div style={{fontSize:26,minWidth:32,textAlign:"center"}}>{idx===0&&team.played>0?"🏆":`${idx+1}`}</div>
               <div style={{flex:1}}>
-                <div style={{fontWeight:900,fontSize:18,color:T.tx,letterSpacing:1}}>{SHARK_EMOJIS[Math.min(idx,5)]} {team.name}</div>
-                <div style={{fontSize:11,color:T.tx2,marginTop:1}}>{(team.members||[]).join(", ")||"—"} · {team.played}/18 trous</div>
+                <div style={{fontWeight:900,fontSize:18,color:t.tx,letterSpacing:1}}>{SHARK_EMOJIS[Math.min(idx,5)]} {team.name}</div>
+                <div style={{fontSize:11,color:t.tx2,marginTop:1}}>{(team.members||[]).join(", ")||"—"}</div>
               </div>
               <div style={{textAlign:"right"}}>
-                <div style={{fontSize:30,fontWeight:900,color:team.diff<0?"#22c55e":team.diff>0?"#f97316":T.tx2,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:900,color:team.diff<0?"#22c55e":team.diff>0?"#f97316":t.tx2}}>
                   {team.played>0?fmtScore(team.diff):"—"}
+                </div>
+                {/* Current hole indicator */}
+                <div style={{fontSize:11,color:t.acc,fontWeight:700,letterSpacing:1}}>
+                  {team.played===18?"✅ TERMINÉ":`▶ T${currentHole.hole} · ${team.played}/18`}
                 </div>
               </div>
             </div>
             {team.played>0&&(
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:8,borderTop:`1px solid ${T.sep}`}}>
-                <StatPill emoji="🦅" count={team.eagles}  color="#f59e0b" label="EAGLE"/>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:8,borderTop:`1px solid ${t.sep}`,marginBottom:8}}>
+                <StatPill emoji="🦅" count={team.eagles} color="#f59e0b" label="EAGLE"/>
                 <StatPill emoji="🐦" count={team.birdies} color="#22c55e" label="BIRDIE"/>
-                <StatPill emoji="🟰" count={team.pars}    color={T.tx2}   label="PAR"/>
-                <StatPill emoji="😬" count={team.bogeys}  color="#f97316" label="BOGEY"/>
+                <StatPill emoji="🟰" count={team.pars} color={t.tx2} label="PAR"/>
+                <StatPill emoji="😬" count={team.bogeys} color="#f97316" label="BOGEY"/>
                 <StatPill emoji="💀" count={team.doubles} color="#ef4444" label="DOUBLE"/>
                 {team.pires>0&&<StatPill emoji="🔥" count={team.pires} color="#dc2626" label="PIRE"/>}
               </div>
             )}
+            <button onClick={()=>onViewScores(team)}
+              style={{width:"100%",padding:"7px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+              VOIR SCORECARD →
+            </button>
           </div>
         );
       })}
 
       {/* Nearest pin table */}
-      <div style={{marginTop:24,background:T.card,border:`1px solid ${T.cardB}`,borderRadius:14,overflow:"hidden"}}>
-        <div style={{padding:"12px 16px",borderBottom:`1px solid ${T.cardB}`,display:"flex",alignItems:"center",gap:8}}>
+      <div style={{marginTop:20,background:t.card,border:`1px solid ${t.cardB}`,borderRadius:14,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.cardB}`,display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:18}}>📍</span>
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:T.acc,letterSpacing:2}}>NEAREST PIN</span>
-          <span style={{fontSize:12,color:T.tx2,marginLeft:"auto"}}>{NP_PRIZE}$ / trou</span>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:t.acc,letterSpacing:2}}>NEAREST PIN</span>
+          <span style={{fontSize:12,color:t.tx2,marginLeft:"auto"}}>{NP_PRIZE}$ / trou</span>
         </div>
         {PAR3S.map(h=>{
           const e=nearestPin?.[h.hole];
-          return (
-            <div key={h.hole} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:`1px solid ${T.sep}`}}>
+          return(
+            <div key={h.hole} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:`1px solid ${t.sep}`}}>
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,color:T.acc,minWidth:60}}>Trou {h.hole}</span>
-                <span style={{fontSize:11,color:T.tx2}}>{h.yards}y</span>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,color:t.acc,minWidth:64}}>Trou #{h.hole}</span>
+                <span style={{fontSize:11,color:t.tx2}}>Par 3 · {h.yards}y</span>
               </div>
               {e?.teamName?(
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontWeight:700,color:T.tx,fontSize:14}}>🏆 {e.winner||e.teamName}</div>
-                  {e.winner&&<div style={{fontSize:11,color:T.tx2}}>{e.teamName}</div>}
+                  <div style={{fontWeight:700,color:t.tx,fontSize:14}}>🏆 {e.winner||e.teamName}</div>
+                  {e.winner&&<div style={{fontSize:11,color:t.tx2}}>{e.teamName}</div>}
                 </div>
               ):(
-                <span style={{fontSize:12,color:T.tx2,fontStyle:"italic"}}>À venir...</span>
+                <span style={{fontSize:12,color:t.tx2,fontStyle:"italic"}}>À venir...</span>
               )}
             </div>
           );
         })}
         {Object.keys(npWinnings).length>0&&(
-          <div style={{padding:"12px 16px",borderTop:`1px solid ${T.cardB}`,background:light?"rgba(45,106,45,0.05)":"rgba(251,191,36,0.04)"}}>
-            <p style={{color:T.acc,fontSize:11,letterSpacing:2,marginBottom:8}}>💰 GAINS</p>
+          <div style={{padding:"12px 16px",background:light?"rgba(45,106,45,0.05)":"rgba(251,191,36,0.04)"}}>
+            <p style={{color:t.acc,fontSize:11,letterSpacing:2,marginBottom:8}}>💰 GAINS</p>
             {Object.entries(npWinnings).sort((a,b)=>b[1]-a[1]).map(([p,a])=>(
               <div key={p} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{color:T.tx,fontSize:14}}>🏌️ {p}</span>
+                <span style={{color:t.tx,fontSize:14}}>🏌️ {p}</span>
                 <span style={{color:"#fbbf24",fontWeight:900,fontSize:16,fontFamily:"'Barlow Condensed',sans-serif"}}>{a}$</span>
               </div>
             ))}
@@ -588,16 +765,16 @@ function Leaderboard({teams, nearestPin, light}) {
 }
 
 // ─── CHAT ─────────────────────────────────────────────────────────────────────
-function ChatBubble({msg,isMe,light}) {
-  const T=theme(light);
-  return (
+function ChatBubble({msg,isMe,light}){
+  const t=T(light);
+  return(
     <div style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:8,marginBottom:12,alignItems:"flex-end"}}>
-      <div style={{width:32,height:32,borderRadius:"50%",background:isMe?T.cardH:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,border:`1px solid ${T.cardB}`}}>
+      <div style={{width:32,height:32,borderRadius:"50%",background:isMe?t.cardH:t.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,border:`1px solid ${t.cardB}`}}>
         {TRASH_EMOJIS[msg.author.charCodeAt(0)%TRASH_EMOJIS.length]}
       </div>
       <div style={{maxWidth:"75%"}}>
-        <div style={{fontSize:10,color:T.tx2,letterSpacing:1,marginBottom:3,textAlign:isMe?"right":"left"}}>{msg.author} · {msg.team}</div>
-        <div style={{background:isMe?T.cardH:T.card,border:`1px solid ${isMe?T.cardHB:T.cardB}`,borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",color:T.tx,fontSize:14,lineHeight:1.4}}>
+        <div style={{fontSize:10,color:t.tx2,letterSpacing:1,marginBottom:3,textAlign:isMe?"right":"left"}}>{msg.author} · {msg.team}</div>
+        <div style={{background:isMe?t.cardH:t.card,border:`1px solid ${isMe?t.cardHB:t.cardB}`,borderRadius:isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",color:t.tx,fontSize:14,lineHeight:1.4}}>
           {msg.text}
         </div>
       </div>
@@ -605,41 +782,38 @@ function ChatBubble({msg,isMe,light}) {
   );
 }
 
-// ─── ADMIN ───────────────────────────────────────────────────────────────────
-function AdminPanel({teams,users,onResetGame,onResetAll,onDeleteMember,light}) {
-  const T=theme(light);
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+function AdminPanel({teams,users,onResetGame,onResetAll,onDeleteMember,light}){
+  const t=T(light);
   const [confirmMode,setConfirmMode]=useState(null);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const allMembers=[];
-  teams.forEach(t=>(t.members||[]).forEach(m=>allMembers.push({member:m,team:t})));
+  teams.forEach(tm=>(tm.members||[]).forEach(m=>allMembers.push({member:m,team:tm})));
   const memberNames=new Set(allMembers.map(x=>x.member));
   const orphans=users.filter(u=>!memberNames.has(u.name));
-
-  return (
+  return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
         <span style={{fontSize:28}}>🔐</span>
         <div>
-          <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:T.tx,margin:0}}>ADMIN</h2>
-          <p style={{color:T.tx2,fontSize:11,letterSpacing:2,marginTop:2}}>ACCÈS RESTREINT · NICK ONLY</p>
+          <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:t.tx,margin:0}}>ADMIN</h2>
+          <p style={{color:t.tx2,fontSize:11,letterSpacing:2,marginTop:2}}>ACCÈS RESTREINT · NICK ONLY</p>
         </div>
       </div>
-
-      {/* Members */}
-      <div style={{background:T.card,border:`1px solid ${T.cardB}`,borderRadius:14,padding:20,marginBottom:12}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:T.acc,letterSpacing:1,marginBottom:12}}>👤 GÉRER LES MEMBRES</div>
-        {!allMembers.length&&<p style={{color:T.tx2,fontSize:13}}>Aucun membre.</p>}
+      <div style={{background:t.card,border:`1px solid ${t.cardB}`,borderRadius:14,padding:20,marginBottom:12}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:t.acc,letterSpacing:1,marginBottom:12}}>👤 GÉRER LES MEMBRES</div>
+        {!allMembers.length&&<p style={{color:t.tx2,fontSize:13}}>Aucun membre.</p>}
         {allMembers.map(({member,team})=>(
-          <div key={`${team.id}-${member}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.sep}`}}>
+          <div key={`${team.id}-${member}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${t.sep}`}}>
             <div>
-              <span style={{color:T.tx,fontSize:15,fontWeight:600}}>{member}</span>
+              <span style={{color:t.tx,fontSize:15,fontWeight:600}}>{member}</span>
               {team.creator===member&&<span style={{marginLeft:6,fontSize:10,color:"#fbbf24",letterSpacing:1}}>CAPT.</span>}
-              <div style={{fontSize:11,color:T.tx2}}>{team.name}</div>
+              <div style={{fontSize:11,color:t.tx2}}>{team.name}</div>
             </div>
             {confirmDelete?.member===member&&confirmDelete?.teamId===team.id?(
               <div style={{display:"flex",gap:6}}>
                 <button onClick={()=>{onDeleteMember(team,member);setConfirmDelete(null);}} style={{padding:"5px 10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>SUPPR.</button>
-                <button onClick={()=>setConfirmDelete(null)} style={{padding:"5px 8px",background:"none",border:`1px solid ${T.cardB}`,borderRadius:6,color:T.tx2,cursor:"pointer",fontSize:12}}>✕</button>
+                <button onClick={()=>setConfirmDelete(null)} style={{padding:"5px 8px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:6,color:t.tx2,cursor:"pointer",fontSize:12}}>✕</button>
               </div>
             ):(
               <button onClick={()=>setConfirmDelete({teamId:team.id,member})} style={{padding:"5px 12px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:6,color:"#f87171",cursor:"pointer",fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>RETIRER</button>
@@ -647,40 +821,30 @@ function AdminPanel({teams,users,onResetGame,onResetAll,onDeleteMember,light}) {
           </div>
         ))}
       </div>
-
-      {/* Orphans */}
-      <div style={{background:T.card,border:`1px solid ${T.cardB}`,borderRadius:14,padding:20,marginBottom:12}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:T.tx2,letterSpacing:1,marginBottom:12}}>👻 SANS ÉQUIPE</div>
-        {!orphans.length&&<p style={{color:T.tx2,fontSize:13}}>Aucun orphelin.</p>}
-        {orphans.map(u=>(
-          <div key={u.name} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.sep}`}}>
-            <span style={{color:T.tx2,fontSize:15}}>{u.name}</span>
-          </div>
-        ))}
+      <div style={{background:t.card,border:`1px solid ${t.cardB}`,borderRadius:14,padding:20,marginBottom:12}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:t.tx2,letterSpacing:1,marginBottom:12}}>👻 SANS ÉQUIPE</div>
+        {!orphans.length&&<p style={{color:t.tx2,fontSize:13}}>Aucun orphelin.</p>}
+        {orphans.map(u=><div key={u.name} style={{padding:"8px 0",borderBottom:`1px solid ${t.sep}`,color:t.tx2,fontSize:15}}>{u.name}</div>)}
       </div>
-
-      {/* Reset game */}
       <div style={{background:"rgba(249,115,22,0.06)",border:"1px solid rgba(249,115,22,0.25)",borderRadius:14,padding:20,marginBottom:12}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#fb923c",letterSpacing:1,marginBottom:6}}>🔄 RESETTER LA PARTIE</div>
-        <p style={{fontSize:13,color:T.tx2,marginBottom:10}}>Scores, nearest pin, messages effacés.<br/><strong style={{color:"#fb923c"}}>Équipes conservées.</strong></p>
+        <p style={{fontSize:13,color:t.tx2,marginBottom:10}}>Scores, nearest pin, messages effacés.<br/><strong style={{color:"#fb923c"}}>Équipes conservées.</strong></p>
         {confirmMode==="game"?(
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>{onResetGame();setConfirmMode(null);}} style={{flex:1,padding:"10px",background:"rgba(249,115,22,0.3)",border:"1px solid #f97316",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900}}>✓ OUI</button>
-            <button onClick={()=>setConfirmMode(null)} style={{padding:"10px 16px",background:"none",border:`1px solid ${T.cardB}`,borderRadius:8,color:T.tx2,cursor:"pointer",fontSize:13}}>ANNULER</button>
+            <button onClick={()=>setConfirmMode(null)} style={{padding:"10px 16px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:13}}>ANNULER</button>
           </div>
         ):(
           <button onClick={()=>setConfirmMode("game")} style={{padding:"10px 20px",background:"rgba(249,115,22,0.2)",border:"1px solid rgba(249,115,22,0.4)",borderRadius:8,color:"#fb923c",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900}}>RESETTER →</button>
         )}
       </div>
-
-      {/* Reset all */}
       <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:20}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:6}}>💀 TOUT EFFACER</div>
-        <p style={{fontSize:13,color:T.tx2,marginBottom:10}}><strong style={{color:"#f87171"}}>Retour à zéro complet.</strong></p>
+        <p style={{fontSize:13,color:t.tx2,marginBottom:10}}><strong style={{color:"#f87171"}}>Retour à zéro complet.</strong></p>
         {confirmMode==="all"?(
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>{onResetAll();setConfirmMode(null);}} style={{flex:1,padding:"10px",background:"rgba(239,68,68,0.3)",border:"1px solid #ef4444",borderRadius:8,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:900}}>💀 OUI</button>
-            <button onClick={()=>setConfirmMode(null)} style={{padding:"10px 16px",background:"none",border:`1px solid ${T.cardB}`,borderRadius:8,color:T.tx2,cursor:"pointer",fontSize:13}}>ANNULER</button>
+            <button onClick={()=>setConfirmMode(null)} style={{padding:"10px 16px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:13}}>ANNULER</button>
           </div>
         ):(
           <button onClick={()=>setConfirmMode("all")} style={{padding:"10px 20px",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:8,color:"#f87171",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900}}>TOUT EFFACER →</button>
@@ -691,26 +855,26 @@ function AdminPanel({teams,users,onResetGame,onResetAll,onDeleteMember,light}) {
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
-function App() {
-  const [rawState,setRawState]         = useState(null);
-  const [userName,setUserName]         = useState(()=>localStorage.getItem("rq-username")||"");
-  const [view,setView]                 = useState("board");
-  const [activeTeamId,setActiveTeamId] = useState(null);
-  const [newTeamName,setNewTeamName]   = useState("");
-  const [chatInput,setChatInput]       = useState("");
-  const [connected,setConnected]       = useState(false);
-  const [toasts,setToasts]             = useState([]);
-  const [light,setLight]               = useState(false);
-  const chatEndRef = useRef(null);
-  const prevScores = useRef({});
+function App(){
+  const [rawState,setRawState]=useState(null);
+  const [userName,setUserName]=useState(()=>localStorage.getItem("rq-username")||"");
+  const [view,setView]=useState("board");
+  const [newTeamName,setNewTeamName]=useState("");
+  const [chatInput,setChatInput]=useState("");
+  const [connected,setConnected]=useState(false);
+  const [toasts,setToasts]=useState([]);
+  const [light,setLight]=useState(false);
+  const [modalTeam,setModalTeam]=useState(null); // scorecard readonly modal
+  const chatEndRef=useRef(null);
+  const prevScores=useRef({});
 
-  function addToast(type,hole,score,teamName) {
+  function addToast(type,hole,score,teamName){
     const id=genId();
     setToasts(t=>[...t,{id,type,hole,score,teamName,fading:false}]);
     setTimeout(()=>setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x)),14500);
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),15000);
   }
-  function dismissToast(id) {
+  function dismissToast(id){
     setToasts(t=>t.map(x=>x.id===id?{...x,fading:true}:x));
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),400);
   }
@@ -718,9 +882,9 @@ function App() {
   useEffect(()=>{
     const unsub=subscribeState(data=>{
       const teams=data.teams
-        ?Object.entries(data.teams).map(([id,t])=>({...t,id,
-            members:t.members?(Array.isArray(t.members)?t.members:Object.values(t.members)):[],
-            scores:t.scores?(Array.isArray(t.scores)?t.scores:Object.values(t.scores)):Array(18).fill(""),
+        ?Object.entries(data.teams).map(([id,tm])=>({...tm,id,
+            members:tm.members?(Array.isArray(tm.members)?tm.members:Object.values(tm.members)):[],
+            scores:tm.scores?(Array.isArray(tm.scores)?tm.scores:Object.values(tm.scores)):Array(18).fill(""),
           }))
         :[];
       const messages=data.messages
@@ -728,18 +892,18 @@ function App() {
         :[];
       const users=data.users?Object.entries(data.users).map(([name,u])=>({name,...u})):[];
 
-      // Toasts
+      // Toasts on score change
       teams.forEach(team=>{
         const prev=prevScores.current[team.id];
         if(prev){
           team.scores.forEach((sc,i)=>{
-            if(sc===""||sc==null) return;
-            if(prev[i]===sc) return;
+            if(sc===""||sc==null)return;
+            if(prev[i]===sc)return;
             const d=Number(sc)-HOLES[i].par;
             let type=null;
-            if(d<=-2)type="eagle"; else if(d===-1)type="birdie";
-            else if(d===1)type="bogey"; else if(d===2)type="double"; else if(d>=3)type="pire";
-            if(type) addToast(type,i+1,sc,team.name);
+            if(d<=-2)type="eagle";else if(d===-1)type="birdie";
+            else if(d===1)type="bogey";else if(d===2)type="double";else if(d>=3)type="pire";
+            if(type)addToast(type,i+1,sc,team.name);
           });
         }
         prevScores.current[team.id]=[...team.scores];
@@ -763,21 +927,19 @@ function App() {
   },[]);
 
   useEffect(()=>{
-    if(!userName) return;
+    if(!userName)return;
     db.ref(`${ROOT}/users/${userName}`).get().then(snap=>{
-      if(!snap.exists()) fbSet(`users/${userName}`,{joinedAt:Date.now(),deleted:false});
+      if(!snap.exists())fbSet(`users/${userName}`,{joinedAt:Date.now(),deleted:false});
     });
   },[userName]);
 
   useEffect(()=>{
-    if(chatEndRef.current) chatEndRef.current.scrollIntoView({behavior:"smooth"});
+    if(chatEndRef.current)chatEndRef.current.scrollIntoView({behavior:"smooth"});
   },[rawState?.messages?.length]);
 
-  async function registerAndEnter(name,action,payload) {
+  async function registerAndEnter(name,action,payload){
     const snap=await db.ref(`${ROOT}/users/${name}`).get();
-    if(snap.exists()&&!snap.val().deleted){
-      alert(`Le nom "${name}" est déjà utilisé! Choisis un autre nom.`); return;
-    }
+    if(snap.exists()&&!snap.val().deleted){alert(`Le nom "${name}" est déjà utilisé! Choisis un autre nom.`);return;}
     await fbSet(`users/${name}`,{joinedAt:Date.now(),deleted:false});
     localStorage.setItem("rq-username",name);
     setUserName(name);
@@ -785,103 +947,112 @@ function App() {
       const team=payload;
       if(!(team.members||[]).includes(name))
         await fbSet(`teams/${team.id}/members`,[...(team.members||[]),name]);
-      setActiveTeamId(team.id); setView("scorecard");
-    } else if(action==="create"&&payload){
+      setView("scorecard");
+    }else if(action==="create"&&payload){
       const id=genId();
       await fbSet(`teams/${id}`,{name:payload,creator:name,members:[name],scores:Array(18).fill(""),createdAt:Date.now()});
-      setActiveTeamId(id); setView("scorecard");
+      setView("scorecard");
     }
   }
 
-  if(!connected) return <Spinner/>;
-  if(!userName)  return <EntryScreen onEnter={registerAndEnter} teams={rawState?.teams||[]}/>;
+  if(!connected)return<Spinner/>;
+  if(!userName)return<EntryScreen onEnter={registerAndEnter} teams={rawState?.teams||[]}/>;
 
   const {teams=[],messages=[],nearestPin={},users=[]}=rawState||{};
-  const myTeam  = teams.find(t=>(t.members||[]).includes(userName));
-  const isAdmin = userName==="Nick";
-  const T = theme(light);
+  const myTeam=teams.find(tm=>(tm.members||[]).includes(userName));
+  const isAdmin=userName==="Nick";
+  const isCapitaine=myTeam?.creator===userName;
+  // Nick can edit any team from scorecard view — but for simplicity Nick uses his own team
+  const canEdit=isCapitaine||isAdmin;
+  const t=T(light);
 
-  async function createTeam() {
-    if(!newTeamName.trim()) return;
-    if(myTeam) return alert("Tu es déjà dans une équipe!");
+  // The team shown in scorecard tab
+  const scorecardTeam=myTeam;
+
+  // NP: capitaine can only pick members of own team; Nick can pick from all teams
+  const npTeams=isAdmin?teams:(myTeam?[myTeam]:[]);
+
+  async function createTeam(){
+    if(!newTeamName.trim())return;
+    if(myTeam)return alert("Tu es déjà dans une équipe!");
     const id=genId();
     await fbSet(`teams/${id}`,{name:newTeamName.trim(),creator:userName,members:[userName],scores:Array(18).fill(""),createdAt:Date.now()});
-    setNewTeamName(""); setActiveTeamId(id); setView("scorecard");
+    setNewTeamName("");setView("scorecard");
   }
-  async function joinTeam(teamId) {
-    if(myTeam) return alert("Tu es déjà dans une équipe!");
-    const team=teams.find(t=>t.id===teamId);
+  async function joinTeam(teamId){
+    if(myTeam)return alert("Tu es déjà dans une équipe!");
+    const team=teams.find(tm=>tm.id===teamId);
     await fbSet(`teams/${teamId}/members`,[...(team.members||[]),userName]);
-    setActiveTeamId(teamId); setView("scorecard");
+    setView("scorecard");
   }
-  async function leaveTeam() {
-    if(!myTeam) return;
+  async function leaveTeam(){
+    if(!myTeam)return;
     if(myTeam.creator===userName){
-      if(!window.confirm("Tu es le créateur. L'équipe sera supprimée!")) return;
+      if(!window.confirm("Tu es le créateur. L'équipe sera supprimée!"))return;
       await fbRemove(`teams/${myTeam.id}`);
-    } else {
+    }else{
       await fbSet(`teams/${myTeam.id}/members`,myTeam.members.filter(m=>m!==userName));
     }
-    setActiveTeamId(null); setView("board");
+    setView("board");
   }
-  async function updateScore(scores) { if(myTeam) await fbSet(`teams/${myTeam.id}/scores`,scores); }
-  async function updateNP(holeNum,winner,teamId,teamName) {
-    if(winner===null&&teamId===null) { await fbRemove(`nearestPin/${holeNum}`); return; }
+  async function updateScore(scores){if(myTeam)await fbSet(`teams/${myTeam.id}/scores`,scores);}
+  async function updateNP(holeNum,winner,teamId,teamName){
+    if(winner===null&&teamId===null){await fbRemove(`nearestPin/${holeNum}`);return;}
     await fbSet(`nearestPin/${holeNum}`,{winner,teamId,teamName});
   }
-  async function sendMessage() {
-    if(!chatInput.trim()) return;
+  async function sendMessage(){
+    if(!chatInput.trim())return;
     await fbPush("messages",{author:userName,team:myTeam?.name||"Spectateur",text:chatInput.trim(),ts:Date.now()});
     setChatInput("");
   }
-  async function deleteMember(team,member) {
-    if(team.creator===member) await fbRemove(`teams/${team.id}`);
+  async function deleteMember(team,member){
+    if(team.creator===member)await fbRemove(`teams/${team.id}`);
     else await fbSet(`teams/${team.id}/members`,(team.members||[]).filter(m=>m!==member));
     await fbSet(`users/${member}/deleted`,true);
   }
-  async function resetGame() {
-    await fbRemove("nearestPin"); await fbRemove("messages");
-    for(const t of teams) await fbSet(`teams/${t.id}/scores`,Array(18).fill(""));
+  async function resetGame(){
+    await fbRemove("nearestPin");await fbRemove("messages");
+    for(const tm of teams)await fbSet(`teams/${tm.id}/scores`,Array(18).fill(""));
   }
-  async function resetAll() {
+  async function resetAll(){
     await db.ref(ROOT).remove();
-    localStorage.removeItem("rq-username"); setUserName("");
+    localStorage.removeItem("rq-username");setUserName("");
   }
 
   const navItems=[
-    {id:"board",    label:"Tableau", emoji:"🏆"},
-    {id:"teams",    label:"Équipes", emoji:"⛳"},
+    {id:"board",label:"Tableau",emoji:"🏆"},
+    {id:"teams",label:"Équipes",emoji:"⛳"},
     {id:"scorecard",label:myTeam?"Ma carte":"Scores",emoji:"📋"},
-    {id:"chat",     label:"Trash",   emoji:"🦈"},
+    {id:"chat",label:"Trash",emoji:"🦈"},
     ...(isAdmin?[{id:"admin",label:"Admin",emoji:"🔐"}]:[]),
   ];
 
-  // Active team for scorecard view
-  const viewTeam = teams.find(t=>t.id===activeTeamId) || myTeam;
-
-  return (
-    <div style={{minHeight:"100vh",background:T.bg,color:T.tx,fontFamily:"'Barlow',sans-serif",paddingBottom:80,transition:"background 0.3s"}}>
+  return(
+    <div style={{minHeight:"100vh",background:t.bg,color:t.tx,fontFamily:"'Barlow',sans-serif",paddingBottom:80,transition:"background 0.3s"}}>
       <ToastContainer toasts={toasts} onDismiss={dismissToast}/>
 
+      {/* Scorecard modal (readonly) */}
+      {modalTeam&&<ScorecardModal team={modalTeam} onClose={()=>setModalTeam(null)} light={light}/>}
+
       {/* HEADER */}
-      <div style={{background:T.hdr,backdropFilter:"blur(12px)",borderBottom:`1px solid ${T.hdrB}`,padding:"12px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{background:t.hdr,backdropFilter:"blur(12px)",borderBottom:`1px solid ${t.hdrB}`,padding:"12px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🦈</span>
           <div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:T.acc}}>REQUIN OPEN</div>
-            <div style={{fontSize:10,color:T.tx2,letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,letterSpacing:2,lineHeight:1,color:t.acc}}>REQUIN OPEN</div>
+            <div style={{fontSize:10,color:t.tx2,letterSpacing:2}}>LAC MÉGANTIC · PAR {TOTAL_PAR}</div>
           </div>
-          <div style={{background:light?"rgba(45,106,45,0.1)":"rgba(56,189,248,0.12)",border:`1px solid ${T.cardB}`,borderRadius:6,padding:"2px 8px",marginLeft:4}}>
-            <span style={{fontSize:11,fontWeight:900,color:T.acc,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v2.0</span>
+          <div style={{background:light?"rgba(45,106,45,0.1)":"rgba(56,189,248,0.12)",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"2px 8px",marginLeft:4}}>
+            <span style={{fontSize:11,fontWeight:900,color:t.acc,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>v2.1</span>
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:12,color:myTeam?"#22c55e":T.tx2,fontWeight:600}}>{myTeam?`🟢 ${myTeam.name}`:`👤 ${userName}`}</div>
+            <div style={{fontSize:12,color:myTeam?"#22c55e":t.tx2,fontWeight:600}}>{myTeam?`🟢 ${myTeam.name}`:`👤 ${userName}`}</div>
             <div style={{fontSize:10,color:"#22c55e",letterSpacing:1}}>● LIVE</div>
           </div>
           <button onClick={()=>setLight(l=>!l)}
-            style={{width:34,height:34,borderRadius:"50%",background:T.cardH,border:`1px solid ${T.cardB}`,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            style={{width:34,height:34,borderRadius:"50%",background:t.cardH,border:`1px solid ${t.cardB}`,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             {light?"🌙":"☀️"}
           </button>
         </div>
@@ -896,38 +1067,38 @@ function App() {
 
         {view==="board"&&(
           <div>
-            <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:T.tx,marginBottom:4}}>CLASSEMENT 🏆</h2>
-            <p style={{color:T.tx2,fontSize:12,letterSpacing:2,marginBottom:20}}>Lac Mégantic · Par {TOTAL_PAR} · Temps réel</p>
-            <Leaderboard teams={teams} nearestPin={nearestPin} light={light}/>
+            <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:t.tx,marginBottom:4}}>CLASSEMENT 🏆</h2>
+            <p style={{color:t.tx2,fontSize:12,letterSpacing:2,marginBottom:20}}>Lac Mégantic · Par {TOTAL_PAR} · Temps réel</p>
+            <Leaderboard teams={teams} nearestPin={nearestPin} light={light} onViewScores={setModalTeam}/>
           </div>
         )}
 
         {view==="teams"&&(
           <div>
-            <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:T.tx,marginBottom:20}}>ÉQUIPES ⛳</h2>
+            <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:t.tx,marginBottom:20}}>ÉQUIPES ⛳</h2>
             {!myTeam&&(
-              <div style={{background:T.cardH,border:`1px solid ${T.cardHB}`,borderRadius:14,padding:18,marginBottom:20}}>
-                <p style={{color:T.acc,fontSize:12,letterSpacing:2,marginBottom:10}}>CRÉER UNE ÉQUIPE</p>
+              <div style={{background:t.cardH,border:`1px solid ${t.cardHB}`,borderRadius:14,padding:18,marginBottom:20}}>
+                <p style={{color:t.acc,fontSize:12,letterSpacing:2,marginBottom:10}}>CRÉER UNE ÉQUIPE</p>
                 <div style={{display:"flex",gap:8}}>
                   <input value={newTeamName} onChange={e=>setNewTeamName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createTeam()} placeholder="Nom de ton équipe..."
-                    style={{flex:1,padding:"12px 14px",fontSize:16,fontWeight:700,background:T.inp,border:`1px solid ${T.inpB}`,borderRadius:8,color:T.tx,outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}}/>
-                  <button onClick={createTeam} style={{padding:"12px 18px",background:T.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:16,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>CRÉER</button>
+                    style={{flex:1,padding:"12px 14px",fontSize:16,fontWeight:700,background:t.inp,border:`1px solid ${t.inpB}`,borderRadius:8,color:t.tx,outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                  <button onClick={createTeam} style={{padding:"12px 18px",background:t.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:16,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>CRÉER</button>
                 </div>
               </div>
             )}
             {myTeam&&(
-              <div style={{background:T.cardH,border:`1px solid ${T.cardHB}`,borderRadius:14,padding:18,marginBottom:20}}>
+              <div style={{background:t.cardH,border:`1px solid ${t.cardHB}`,borderRadius:14,padding:18,marginBottom:20}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
-                    <p style={{color:T.acc,fontSize:12,letterSpacing:2,marginBottom:4}}>TON ÉQUIPE</p>
-                    <p style={{color:T.tx,fontSize:20,fontWeight:700}}>🦈 {myTeam.name}</p>
+                    <p style={{color:t.acc,fontSize:12,letterSpacing:2,marginBottom:4}}>TON ÉQUIPE {isCapitaine?"· ✏️ CAPITAINE":""}</p>
+                    <p style={{color:t.tx,fontSize:20,fontWeight:700}}>🦈 {myTeam.name}</p>
                   </div>
                   <button onClick={leaveTeam} style={{padding:"8px 14px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.4)",borderRadius:8,color:"#dc2626",cursor:"pointer",fontSize:12,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif"}}>QUITTER</button>
                 </div>
               </div>
             )}
             {!teams.length&&(
-              <div style={{textAlign:"center",padding:"40px 0",color:T.tx2}}>
+              <div style={{textAlign:"center",padding:"40px 0",color:t.tx2}}>
                 <div style={{fontSize:48,marginBottom:12}}>🏌️</div>
                 <p style={{letterSpacing:2,fontSize:13}}>Aucune équipe.<br/>Sois le premier!</p>
               </div>
@@ -935,24 +1106,24 @@ function App() {
             {teams.map(team=>{
               const isMine=team.id===myTeam?.id;
               const stats=getStats(team.scores||[]);
-              return (
-                <div key={team.id} style={{background:isMine?T.cardH:T.card,border:`1px solid ${isMine?T.cardHB:T.cardB}`,borderRadius:14,padding:16,marginBottom:10}}>
+              return(
+                <div key={team.id} style={{background:isMine?t.cardH:t.card,border:`1px solid ${isMine?t.cardHB:t.cardB}`,borderRadius:14,padding:16,marginBottom:10}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                     <div>
-                      <div style={{fontSize:18,fontWeight:700,color:T.tx}}>🦈 {team.name}</div>
-                      <div style={{fontSize:11,color:T.tx2,marginTop:2}}>Créé par {team.creator}</div>
+                      <div style={{fontSize:18,fontWeight:700,color:t.tx}}>🦈 {team.name}</div>
+                      <div style={{fontSize:11,color:t.tx2,marginTop:2}}>Créé par {team.creator}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:22,fontWeight:900,color:stats.diff<0?"#22c55e":stats.diff>0?"#f97316":T.tx2}}>{stats.played>0?fmtScore(stats.diff):"—"}</div>
-                      <div style={{fontSize:10,color:T.tx2}}>{stats.played}/18 trous</div>
+                      <div style={{fontSize:22,fontWeight:900,color:stats.diff<0?"#22c55e":stats.diff>0?"#f97316":t.tx2}}>{stats.played>0?fmtScore(stats.diff):"—"}</div>
+                      <div style={{fontSize:10,color:t.tx2}}>{stats.played}/18 trous</div>
                     </div>
                   </div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-                    {(team.members||[]).map(m=><span key={m} style={{padding:"3px 10px",background:T.cardH,borderRadius:20,fontSize:12,color:T.acc,border:`1px solid ${T.cardHB}`}}>{m}</span>)}
+                    {(team.members||[]).map(m=><span key={m} style={{padding:"3px 10px",background:t.cardH,borderRadius:20,fontSize:12,color:t.acc,border:`1px solid ${t.cardHB}`}}>{m}</span>)}
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    {!myTeam&&<button onClick={()=>joinTeam(team.id)} style={{padding:"8px 16px",background:T.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>JOINDRE</button>}
-                    <button onClick={()=>{setActiveTeamId(team.id);setView("scorecard");}} style={{padding:"8px 16px",background:"none",border:`1px solid ${T.cardB}`,borderRadius:8,color:T.tx2,cursor:"pointer",fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>VOIR SCORES</button>
+                    {!myTeam&&<button onClick={()=>joinTeam(team.id)} style={{padding:"8px 16px",background:t.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>JOINDRE</button>}
+                    <button onClick={()=>setModalTeam(team)} style={{padding:"8px 16px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>VOIR SCORES</button>
                   </div>
                 </div>
               );
@@ -962,27 +1133,28 @@ function App() {
 
         {view==="scorecard"&&(
           <div>
-            {!viewTeam?(
+            {!scorecardTeam?(
               <div style={{textAlign:"center",padding:"60px 0"}}>
                 <div style={{fontSize:48}}>📋</div>
-                <p style={{color:T.tx2,marginTop:16,letterSpacing:2,fontSize:13}}>JOINS UNE ÉQUIPE POUR SAISIR LES SCORES</p>
-                <button onClick={()=>setView("teams")} style={{marginTop:16,padding:"12px 24px",background:T.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2}}>VOIR LES ÉQUIPES</button>
+                <p style={{color:t.tx2,marginTop:16,letterSpacing:2,fontSize:13}}>JOINS UNE ÉQUIPE POUR ACCÉDER À LA CARTE</p>
+                <button onClick={()=>setView("teams")} style={{marginTop:16,padding:"12px 24px",background:t.btn,border:"none",borderRadius:8,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2}}>VOIR LES ÉQUIPES</button>
               </div>
             ):(
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}>
-                  <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:900,color:T.tx}}>🦈 {viewTeam.name}</h2>
-                  <span style={{fontSize:11,color:viewTeam.creator===userName?"#22c55e":T.tx2,letterSpacing:1}}>
-                    {viewTeam.creator===userName?"✏️ CAPITAINE":"LECTURE SEULE"}
+                  <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:900,color:t.tx}}>🦈 {scorecardTeam.name}</h2>
+                  <span style={{fontSize:11,color:canEdit?"#22c55e":t.tx2,letterSpacing:1}}>
+                    {canEdit?"✏️ CAPITAINE":"👀 LECTURE"}
                   </span>
                 </div>
                 <HoleScorecard
-                  team={viewTeam}
-                  onUpdateScore={viewTeam.creator===userName?updateScore:()=>{}}
+                  team={scorecardTeam}
+                  canEdit={canEdit}
+                  onUpdateScore={updateScore}
                   onUpdateNP={updateNP}
                   nearestPin={nearestPin}
                   light={light}
-                  teams={teams}
+                  teams={npTeams}
                 />
               </div>
             )}
@@ -991,11 +1163,11 @@ function App() {
 
         {view==="chat"&&(
           <div>
-            <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:T.tx,marginBottom:4}}>TRASH TALK 🦈</h2>
-            <p style={{color:T.tx2,fontSize:12,letterSpacing:2,marginBottom:20}}>Chippe les autres équipes ici · Live</p>
-            <div style={{minHeight:300,maxHeight:480,overflowY:"auto",padding:"16px",background:T.card,borderRadius:14,marginBottom:16,border:`1px solid ${T.cardB}`}}>
+            <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,letterSpacing:2,color:t.tx,marginBottom:4}}>TRASH TALK 🦈</h2>
+            <p style={{color:t.tx2,fontSize:12,letterSpacing:2,marginBottom:20}}>Chippe les autres équipes ici · Live</p>
+            <div style={{minHeight:300,maxHeight:480,overflowY:"auto",padding:"16px",background:t.card,borderRadius:14,marginBottom:16,border:`1px solid ${t.cardB}`}}>
               {!messages.length&&(
-                <div style={{textAlign:"center",paddingTop:60,color:T.tx2}}>
+                <div style={{textAlign:"center",paddingTop:60,color:t.tx2}}>
                   <div style={{fontSize:40}}>🦈</div>
                   <p style={{marginTop:12,letterSpacing:2,fontSize:12}}>AUCUN TRASH TALK POUR L'INSTANT</p>
                 </div>
@@ -1005,22 +1177,22 @@ function App() {
             </div>
             <div style={{display:"flex",gap:8}}>
               <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()} placeholder="Chippe une équipe... 🦈"
-                style={{flex:1,padding:"12px 16px",fontSize:15,background:T.inp,border:`1px solid ${T.inpB}`,borderRadius:24,color:T.tx,outline:"none",fontFamily:"'Barlow',sans-serif"}}/>
-              <button onClick={sendMessage} style={{padding:"12px 18px",background:T.btn,border:"none",borderRadius:24,color:"#fff",cursor:"pointer",fontSize:18}}>🦈</button>
+                style={{flex:1,padding:"12px 16px",fontSize:15,background:t.inp,border:`1px solid ${t.inpB}`,borderRadius:24,color:t.tx,outline:"none",fontFamily:"'Barlow',sans-serif"}}/>
+              <button onClick={sendMessage} style={{padding:"12px 18px",background:t.btn,border:"none",borderRadius:24,color:"#fff",cursor:"pointer",fontSize:18}}>🦈</button>
             </div>
           </div>
         )}
       </div>
 
       {/* BOTTOM NAV */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.nav,backdropFilter:"blur(16px)",borderTop:`1px solid ${T.navB}`,display:"flex",justifyContent:"space-around",padding:"10px 0 max(10px,env(safe-area-inset-bottom))"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:t.nav,backdropFilter:"blur(16px)",borderTop:`1px solid ${t.navB}`,display:"flex",justifyContent:"space-around",padding:"10px 0 max(10px,env(safe-area-inset-bottom))"}}>
         {navItems.map(nav=>{
           const active=view===nav.id;
-          return (
-            <button key={nav.id} onClick={()=>setView(nav.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 16px",color:active?T.acc:T.tx2,transition:"color 0.2s"}}>
+          return(
+            <button key={nav.id} onClick={()=>setView(nav.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 16px",color:active?t.acc:t.tx2,transition:"color 0.2s"}}>
               <span style={{fontSize:22}}>{nav.emoji}</span>
               <span style={{fontSize:10,fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase"}}>{nav.label}</span>
-              {active&&<div style={{width:4,height:4,borderRadius:"50%",background:T.acc}}/>}
+              {active&&<div style={{width:4,height:4,borderRadius:"50%",background:t.acc}}/>}
             </button>
           );
         })}
