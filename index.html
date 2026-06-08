@@ -270,7 +270,7 @@ function ScorecardModal({team, onClose, light, nearestPin}){
               if(!e?.history?.length)return null;
               return(
                 <div key={h.hole} style={{marginBottom:12}}>
-                  <div style={{fontSize:11,color:t.acc,fontWeight:700,letterSpacing:1,marginBottom:6}}>Trou #{h.hole} {e.locked?"🔒":""}</div>
+                  <div style={{fontSize:11,color:t.acc,fontWeight:700,letterSpacing:1,marginBottom:6}}>Trou #{h.hole}</div>
                   {e.history.map((ev,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${t.sep}`}}>
                       <div style={{fontSize:10,color:t.tx2,minWidth:36}}>
@@ -632,12 +632,12 @@ function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, 
 
   // Is trou locked? All teams have a score for this hole
   const holeIndex=HOLES.findIndex(h=>h.hole===holeNum);
-  const locked=npEntry?.locked||false;
+  const locked=false;
   const holder=npEntry?.teamName?npEntry:null;
   const isHolder=holder&&holder.teamId===myTeam?.id;
   const myTeamAlreadyClaimed=(npEntry?.history||[]).some(h=>h.teamId===myTeam?.id);
   // Can claim: capitaine, on current hole, not already claimed, not locked
-  const canClaim=isCapitaine&&isCurrentHole&&!myTeamAlreadyClaimed&&!locked;
+  const canClaim=isCapitaine&&isCurrentHole&&!myTeamAlreadyClaimed;
   const history=npEntry?.history||[];
 
   function handleClaimStart(){setClaimStep('selectPlayer');setSelMember("");}
@@ -661,7 +661,7 @@ function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, 
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:10,letterSpacing:2,color:isHolder?"#22c55e":"#f59e0b",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>
-                {locked?"🔒 VERROUILLÉ":"👑 DÉTENTEUR ACTUEL"}
+                {isHolder?"🏆 TON ÉQUIPE TIENT LE TROU":"👑 DÉTENTEUR ACTUEL"}
               </div>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color:t.tx,lineHeight:1}}>
                 {holder.winner?holder.winner:holder.teamName}
@@ -670,12 +670,16 @@ function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, 
             </div>
             <div style={{fontSize:36}}>{isHolder?"🏆":"🎯"}</div>
           </div>
-          {isHolder&&!locked&&<div style={{fontSize:11,color:"#22c55e",marginTop:8,letterSpacing:1}}>Ton équipe tient le trou — attends de voir si quelqu'un te vole!</div>}
+          {isHolder&&<div style={{fontSize:11,color:"#22c55e",marginTop:8}}>Ton tee est planté sur le green — attends de voir si une autre équipe place une balle plus proche!</div>}
+          {!isHolder&&!myTeamAlreadyClaimed&&isCurrentHole&&isCapitaine&&(
+            <div style={{fontSize:11,color:"#f59e0b",marginTop:8}}>Leur tee est planté. Place une balle plus proche du trou pour voler!</div>
+          )}
         </div>
       ):(
-        <div style={{background:t.cardH,border:`1px solid ${t.cardB}`,borderRadius:12,padding:"12px 16px",marginBottom:12,textAlign:"center"}}>
-          <div style={{fontSize:28,marginBottom:4}}>📍</div>
-          <div style={{color:t.tx2,fontSize:13,letterSpacing:1}}>Personne n'a encore claimé ce trou</div>
+        <div style={{background:t.cardH,border:`1px solid ${t.cardB}`,borderRadius:12,padding:"14px 16px",marginBottom:12,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:6}}>⛳</div>
+          <div style={{color:t.tx,fontSize:14,fontWeight:600,marginBottom:4}}>Personne n'a encore planté de tee</div>
+          <div style={{color:t.tx2,fontSize:12}}>La première équipe à placer une balle sur le green peut claimer</div>
         </div>
       )}
 
@@ -683,14 +687,17 @@ function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, 
       {canClaim&&claimStep===null&&(
         <button onClick={handleClaimStart}
           style={{width:"100%",padding:"14px",background:holder?(light?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#f59e0b,#d97706)"):(t.btn),border:"none",borderRadius:12,color:"#fff",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,letterSpacing:2,boxShadow:holder?"0 4px 16px rgba(245,158,11,0.4)":"none"}}>
-          {holder?`🎯 VOLER LE TROU À ${holder.teamName.toUpperCase()}`:"📍 CLAIMER CE TROU"}
+          {holder?`🎯 MA BALLE EST PLUS PROCHE — VOLER LE TROU`:"📍 PLANTER MON TEE — CLAIMER LE TROU"}
         </button>
       )}
 
       {canClaim&&claimStep==='selectPlayer'&&(
         <div style={{background:t.card,border:`1px solid ${t.cardHB}`,borderRadius:12,padding:16}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:t.acc,letterSpacing:2,marginBottom:12}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:t.acc,letterSpacing:2,marginBottom:4}}>
             QUEL JOUEUR A LA BALLE LA PLUS PROCHE?
+          </div>
+          <div style={{fontSize:12,color:t.tx2,marginBottom:12}}>
+            {holder?`Dont la balle est plus proche du trou que celle de ${holder.winner||holder.teamName}`:"Dont la balle est la plus proche du trou sur le green"}
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
             {(myTeam?.members||[]).map(m=>(
@@ -717,20 +724,22 @@ function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, 
 
       {canClaim&&claimStep==='confirm'&&(
         <div style={{background:light?"rgba(239,68,68,0.06)":"rgba(239,68,68,0.08)",border:"2px solid rgba(239,68,68,0.4)",borderRadius:12,padding:16}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:8}}>
-            ⚠️ CONFIRMATION REQUISE
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:"#f87171",letterSpacing:1,marginBottom:10}}>
+            ⚠️ CONFIRME AVANT DE PLANTER TON TEE
           </div>
-          <p style={{color:t.tx,fontSize:14,lineHeight:1.5,marginBottom:16}}>
-            {holder
-              ?<>T'es certain que <strong>{selMember||myTeam?.name}</strong> a battu <strong>{holder.winner||holder.teamName}</strong> au nearest pin?</>
-              :<>T'es certain que <strong>{selMember||myTeam?.name}</strong> tient le nearest pin du trou #{holeNum}?</>
-            }<br/>
-            <span style={{fontSize:12,color:"#f87171",fontStyle:"italic"}}>Cette action est irréversible.</span>
+          <p style={{color:t.tx,fontSize:14,lineHeight:1.6,marginBottom:16}}>
+            {holder?(
+              <>La balle de <strong>{selMember||myTeam?.name}</strong> est plus proche du trou que celle de <strong>{holder.winner||holder.teamName}</strong>?<br/>
+              <span style={{fontSize:12,color:t.tx2}}>Le tee de {holder.winner||holder.teamName} sera retiré et remplacé par le tien.</span></>
+            ):(
+              <>La balle de <strong>{selMember||myTeam?.name}</strong> est sur le green et tu veux planter ton tee pour marquer la position?</>
+            )}
+            <br/><span style={{fontSize:11,color:"#f87171",fontStyle:"italic",display:"block",marginTop:6}}>Action irréversible — ton équipe ne peut claimer ce trou qu'une seule fois.</span>
           </p>
           <div style={{display:"flex",gap:8}}>
             <button onClick={handleFinalClaim}
               style={{flex:1,padding:"12px",background:"linear-gradient(135deg,#ef4444,#dc2626)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",fontSize:15,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-              ✓ OUI, CONFIRMER
+              ✓ OUI, PLANTER MON TEE
             </button>
             <button onClick={()=>setClaimStep(null)}
               style={{padding:"12px 16px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:10,color:t.tx2,cursor:"pointer",fontSize:14}}>ANNULER</button>
@@ -738,26 +747,26 @@ function NearestPinClaim({npEntry, holeNum, myTeam, isCapitaine, isCurrentHole, 
         </div>
       )}
 
-      {/* Claim not available message */}
-      {!canClaim&&!locked&&isCapitaine&&!isCurrentHole&&!isHolder&&(
-        <div style={{fontSize:11,color:t.tx2,fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>
-          Tu peux seulement claimer quand tu joues ce trou
+      {!canClaim&&isCapitaine&&!isCurrentHole&&!isHolder&&!myTeamAlreadyClaimed&&(
+        <div style={{fontSize:11,color:t.tx2,fontStyle:"italic",textAlign:"center",padding:"6px 0"}}>
+          Tu pourras claimer quand tu joueras ce trou
         </div>
       )}
 
-      {/* History */}
       {history.length>0&&(
-        <div style={{marginTop:12}}>
-          <div style={{fontSize:10,color:t.tx2,letterSpacing:2,marginBottom:8}}>HISTORIQUE</div>
+        <div style={{marginTop:14}}>
+          <div style={{fontSize:10,color:t.tx2,letterSpacing:2,marginBottom:8}}>HISTORIQUE DU TROU</div>
           {history.map((h,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${t.sep}`}}>
               <div style={{fontSize:10,color:t.tx2,minWidth:36}}>{fmtTime(h.claimedAt)}</div>
-              <div style={{width:6,height:6,borderRadius:"50%",background:i===history.length-1?"#22c55e":t.tx2,flexShrink:0}}/>
-              <div style={{fontSize:13,color:i===history.length-1?t.tx:t.tx2}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:i===history.length-1?"#22c55e":"#f59e0b",flexShrink:0}}/>
+              <div style={{fontSize:13,color:i===history.length-1?t.tx:t.tx2,lineHeight:1.3}}>
                 <strong>{h.winner||h.teamName}</strong>
                 {h.winner&&<span style={{fontSize:11,color:t.tx2}}> · {h.teamName}</span>}
-                {i===0&&<span style={{fontSize:10,color:t.tx2}}> (1er claim)</span>}
-                {i>0&&<span style={{fontSize:10,color:"#f59e0b"}}> 🎯 vol</span>}
+                {i===0
+                  ?<span style={{fontSize:10,color:t.tx2}}> a planté son tee en premier</span>
+                  :<span style={{fontSize:10,color:"#f59e0b"}}> 🎯 a volé le trou</span>
+                }
               </div>
             </div>
           ))}
@@ -864,7 +873,6 @@ function Leaderboard({teams,nearestPin,light,onViewScores}){
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
                 <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,color:t.acc,minWidth:64}}>Trou #{h.hole}</span>
                 <span style={{fontSize:11,color:t.tx2}}>Par 3 · {h.yards}y</span>
-                {e?.locked&&<span style={{fontSize:10,color:t.tx2}}>🔒</span>}
               </div>
               {e?.teamName?(
                 <div style={{textAlign:"right"}}>
@@ -1127,15 +1135,9 @@ function App(){
   async function updateScore(scores){if(myTeam)await fbSet(`teams/${myTeam.id}/scores`,scores);}
   async function claimNP(holeNum,winner,teamId,teamName){
     if(winner===null&&teamId===null){await fbRemove(`nearestPin/${holeNum}`);return;}
-    const holeIndex=HOLES.findIndex(h=>h.hole===holeNum);
-    // Check if all teams have a score for this hole → lock
-    const allScored=teams.every(tm=>{
-      const s=(tm.scores||[])[holeIndex];
-      return s!==""&&s!=null&&s!==undefined;
-    });
     const existing=rawState?.nearestPin?.[holeNum];
     const history=[...(existing?.history||[]),{teamId,teamName,winner,claimedAt:Date.now()}];
-    await fbSet(`nearestPin/${holeNum}`,{teamId,teamName,winner,claimedAt:Date.now(),locked:allScored,history});
+    await fbSet(`nearestPin/${holeNum}`,{teamId,teamName,winner,claimedAt:Date.now(),history});
   }
   async function updateNP(holeNum,winner,teamId,teamName){
     if(winner===null&&teamId===null){await fbRemove(`nearestPin/${holeNum}`);return;}
