@@ -652,7 +652,7 @@ function App() {
   useEffect(()=>{
     if (!userName) return;
     db.ref(`${ROOT}/users/${userName}`).get().then(snap=>{
-      if (!snap.exists()) fbSet(`users/${userName}`,{joinedAt:Date.now(),teamId:null,deleted:false});
+      if (!snap.exists()) fbSet(`users/${userName}`,{joinedAt:Date.now(),deleted:false});
     });
   },[userName]);
 
@@ -666,20 +666,18 @@ function App() {
       alert(`Le nom "${name}" est déjà utilisé! Choisis un autre nom.`);
       return;
     }
-    await fbSet(`users/${name}`,{joinedAt:Date.now(),teamId:null,deleted:false});
+    await fbSet(`users/${name}`,{joinedAt:Date.now(),deleted:false});
     localStorage.setItem("rq-username",name);
     setUserName(name);
     if (action==="join"&&payload) {
       const team=payload;
       if (!(team.members||[]).includes(name)) {
         await fbSet(`teams/${team.id}/members`,[...(team.members||[]),name]);
-        await fbSet(`users/${name}/teamId`,team.id);
       }
       setActiveTeamId(team.id); setView("scorecard");
     } else if (action==="create"&&payload) {
       const id=generateId();
       await fbSet(`teams/${id}`,{name:payload,creator:name,members:[name],scores:Array(18).fill(""),createdAt:Date.now()});
-      await fbSet(`users/${name}/teamId`,id);
       setActiveTeamId(id); setView("scorecard");
     }
   }
