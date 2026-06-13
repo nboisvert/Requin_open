@@ -161,7 +161,7 @@ function ToastContainer({toasts,onDismiss}){
           style={{pointerEvents:"all",background:TOASTS[t.type]?.bg,border:`2px solid ${TOASTS[t.type]?.border}`,borderRadius:16,padding:"12px 20px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 8px 32px rgba(0,0,0,0.5)",animation:t.fading?"toastOut 0.4s ease forwards":"toastIn 0.3s ease",maxWidth:340,cursor:"pointer"}}>
           <span style={{fontSize:28}}>{TOASTS[t.type]?.icon}</span>
           <div style={{flex:1}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:"#fff",letterSpacing:2}}>{TOASTS[t.type]?.label} — Trou #{t.hole}</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:"#fff",letterSpacing:2}}>{TOASTS[t.type]?.label} — Trou {t.hole}</div>
             <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:1}}>{t.teamName} · {t.score} coups</div>
           </div>
           <span style={{fontSize:16,color:"rgba(255,255,255,0.5)"}}>✕</span>
@@ -262,7 +262,7 @@ function StatPill({emoji,count,color,label}){
 
 // ─── SCORE ROULETTE ──────────────────────────────────────────────────────────
 function ScoreRoulette({par,value,onChange,light,t,horizontal}){
-  const ITEM_H=64, ITEM_W=100;
+  const ITEM_H=56, ITEM_W=100;
   const MIN=Math.max(1,par-2), MAX=par+3;
   const values=Array.from({length:MAX-MIN+1},(_,i)=>i+MIN);
   const scrollRef=useRef(null);
@@ -581,7 +581,6 @@ function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,t
   const [pickMode,setPickMode]=useState(false);
   const [customVal,setCustomVal]=useState("");
   const [roulette,setRoulette]=useState(true);
-  const [horizontal,setHorizontal]=useState(false);
 
   const hole=HOLES[holeIdx];
   const isPar3=hole.par===3;
@@ -618,14 +617,8 @@ function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,t
   return(
     <div style={{animation:"slideUp 0.25s ease"}}>
       {/* Progress */}
-      <div style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <span style={{color:t.tx2,fontSize:11,letterSpacing:2}}>PROGRESSION</span>
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:900,color:stats.diff<0?"#22c55e":stats.diff>0?"#f97316":t.tx2}}>
-            {stats.played>0?fmtScore(stats.diff):"—"}<span style={{fontSize:11,color:t.tx2,fontWeight:400}}> · {stats.played}/18</span>
-          </span>
-        </div>
-        <div style={{height:5,background:t.cardB,borderRadius:3,overflow:"hidden",marginBottom:8}}>
+      <div style={{marginBottom:10}}>
+        <div style={{height:4,background:t.cardB,borderRadius:3,overflow:"hidden",marginBottom:6}}>
           <div style={{height:"100%",width:`${(stats.played/18)*100}%`,background:t.acc,borderRadius:3,transition:"width 0.4s"}}/>
         </div>
         <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
@@ -646,32 +639,24 @@ function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,t
 
       {/* Hole card */}
       <div style={{background:t.card,border:`2px solid ${isPar3?t.acc:t.cardB}`,borderRadius:20,overflow:"hidden",marginBottom:12}}>
-        <div style={{background:isPar3?(light?"rgba(45,106,45,0.15)":"rgba(56,189,248,0.1)"):(light?"rgba(45,106,45,0.06)":"rgba(255,255,255,0.03)"),padding:"14px 20px",borderBottom:`1px solid ${t.cardB}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:42,fontWeight:900,color:t.tx,lineHeight:1}}>TROU #{hole.hole}</div>
-              <div style={{display:"flex",gap:12,marginTop:4,alignItems:"center"}}>
-                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:700,color:t.acc}}>Par {hole.par}</span>
-                <span style={{fontSize:13,color:t.tx2}}>{hole.yards} verges</span>
-                {isPar3&&<span style={{fontSize:13,color:t.acc,fontWeight:700,letterSpacing:1}}>📍 NP</span>}
-              </div>
+        <div style={{background:isPar3?(light?"rgba(45,106,45,0.15)":"rgba(56,189,248,0.1)"):(light?"rgba(45,106,45,0.06)":"rgba(255,255,255,0.03)"),borderBottom:`1px solid ${t.cardB}`}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"10px 20px 8px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:4}}>
+              <button onClick={()=>holeIdx>0&&setHoleIdx(holeIdx-1)} disabled={holeIdx===0}
+                style={{background:"none",border:"none",color:holeIdx>0?t.tx:t.cardB,fontSize:36,cursor:holeIdx>0?"pointer":"default",padding:"0 4px",lineHeight:1,flexShrink:0}}>❮</button>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:42,fontWeight:900,color:t.tx,lineHeight:1,textAlign:"center"}}>TROU {hole.hole}</div>
+              <button onClick={()=>holeIdx<maxReachable&&setHoleIdx(holeIdx+1)} disabled={holeIdx>=maxReachable}
+                style={{background:"none",border:"none",color:holeIdx<maxReachable?t.tx:t.cardB,fontSize:36,cursor:holeIdx<maxReachable?"pointer":"default",padding:"0 4px",lineHeight:1,flexShrink:0}}>❯</button>
             </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:10,color:t.tx2,letterSpacing:1,marginBottom:2}}>CUMUL</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,color:cumulDiff<0?"#22c55e":cumulDiff>0?"#f97316":t.tx2,lineHeight:1}}>
-                {holesCountedForCumul>0?fmtScore(cumulDiff):"—"}
-              </div>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:700,color:t.acc}}>Par {hole.par}</span>
+              <span style={{fontSize:12,color:t.tx2}}>{hole.yards} verges</span>
+              {isPar3&&<span style={{fontSize:12,color:t.acc,fontWeight:700,letterSpacing:1}}>📍 NP</span>}
             </div>
-          </div>
-          <div style={{display:"flex",gap:8,marginTop:12}}>
-            <button onClick={()=>holeIdx>0&&setHoleIdx(holeIdx-1)} disabled={holeIdx===0}
-              style={{flex:1,padding:"8px",borderRadius:10,background:holeIdx>0?t.cardH:"transparent",border:`1px solid ${t.cardB}`,color:holeIdx>0?t.tx:t.cardB,fontSize:14,cursor:holeIdx>0?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>← PRÉC</button>
-            <button onClick={()=>holeIdx<maxReachable&&setHoleIdx(holeIdx+1)} disabled={holeIdx>=maxReachable}
-              style={{flex:1,padding:"8px",borderRadius:10,background:holeIdx<maxReachable?t.cardH:"transparent",border:`1px solid ${t.cardB}`,color:holeIdx<maxReachable?t.tx:t.cardB,fontSize:14,cursor:holeIdx<maxReachable?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>SUIV →</button>
           </div>
         </div>
 
-        <div style={{padding:"20px"}}>
+        <div style={{padding:"14px 16px"}}>
           {!canEdit?(
             <div style={{textAlign:"center",padding:"16px 0"}}>
               <div style={{fontSize:40,marginBottom:10}}>
@@ -708,30 +693,9 @@ function HoleScorecard({team,canEdit,onUpdateScore,onUpdateNP,nearestPin,light,t
             </div>
           ):(
             <div>
-              <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:10}}>
-                {roulette&&<button onClick={()=>setHorizontal(h=>!h)} style={{fontSize:11,color:t.tx2,background:"none",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"3px 10px",cursor:"pointer",letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif"}}>{horizontal?"↕ VERTICAL":"↔ HORIZONTAL"}</button>}
-                <button onClick={()=>setRoulette(r=>!r)} style={{fontSize:11,color:t.tx2,background:"none",border:`1px solid ${t.cardB}`,borderRadius:6,padding:"3px 10px",cursor:"pointer",letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif"}}>{roulette?"BOUTONS":"ROULETTE"}</button>
-              </div>
-              {roulette?(
-                <ScoreRoulette par={hole.par} value={displayScore} onChange={setPicked} light={light} t={t} horizontal={horizontal}/>
-              ):(
-                <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:14}}>
-                  {scoreOptions.map(s=>{
-                    const isPar=s===hole.par, isSel=displayScore===s;
-                    const d=getDiff(s,hole.par);
-                    const bc=d<=-2?"#f59e0b":d===-1?"#22c55e":d===0?t.acc:d===1?"#f97316":"#ef4444";
-                    return(
-                      <button key={s} onClick={()=>setPicked(s)}
-                        style={{flex:1,aspectRatio:"1",maxWidth:60,background:isSel?bc:(isPar?(light?"rgba(45,106,45,0.15)":"rgba(56,189,248,0.15)"):t.cardH),border:isPar?`3px solid ${t.acc}`:`2px solid ${isSel?bc:t.cardB}`,borderRadius:14,color:isSel?"#fff":t.tx,fontSize:26,fontWeight:900,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        {s}
-                      </button>
-                    );
-                  })}
-                  <button onClick={()=>setPickMode(true)} style={{flex:1,aspectRatio:"1",maxWidth:60,background:t.cardH,border:`2px solid ${t.cardB}`,borderRadius:14,color:t.tx2,fontSize:18,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",display:"flex",alignItems:"center",justifyContent:"center"}}>···</button>
-                </div>
-              )}
+              <ScoreRoulette par={hole.par} value={displayScore} onChange={setPicked} light={light} t={t}/>
               <button onClick={handleConfirm} disabled={displayScore===null}
-                style={{width:"100%",padding:"16px",background:displayScore!==null?t.btn:"transparent",border:displayScore!==null?"none":`1px solid ${t.cardB}`,borderRadius:14,color:displayScore!==null?"#fff":t.tx2,cursor:displayScore!==null?"pointer":"default",fontSize:18,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2}}>
+                style={{width:"100%",padding:"13px",background:displayScore!==null?t.btn:"transparent",border:displayScore!==null?"none":`1px solid ${t.cardB}`,borderRadius:14,color:displayScore!==null?"#fff":t.tx2,cursor:displayScore!==null?"pointer":"default",fontSize:17,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2}}>
                 {hasScore&&picked===null?"MODIFIER ✓":`CONFIRMER ${displayScore!==null?`(${displayScore} coups)`:""}`}
               </button>
             </div>
@@ -772,7 +736,13 @@ function Leaderboard({teams,nearestPin,light,onViewScores}){
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,minWidth:28,textAlign:"center",color:idx===0&&team.played>0?t.acc:t.tx2}}>{idx+1}</div>
               <div style={{flex:1}}>
                 <div style={{fontWeight:900,fontSize:18,color:t.tx,letterSpacing:1}}>{team.name}</div>
-                <div style={{fontSize:11,color:t.tx2,marginTop:1}}>{(team.members||[]).join(", ")||"—"}</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:5}}>
+                  {(team.members||[]).map(m=>(
+                    <span key={m} style={{padding:"2px 8px",background:t.cardH,borderRadius:20,fontSize:11,color:t.acc,border:`1px solid ${t.cardHB}`,display:"flex",alignItems:"center",gap:3}}>
+                      {team.creator===m&&<span style={{fontSize:10}}>👑</span>}{m}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:900,color:team.diff<0?"#22c55e":team.diff>0?"#f97316":t.tx2}}>{team.played>0?fmtScore(team.diff):"—"}</div>
@@ -897,6 +867,105 @@ function AdminPanel({teams,users,onResetGame,onResetAll,onDeleteMember,light}){
   );
 }
 
+// ─── PROFILE MENU ────────────────────────────────────────────────────────────
+function ProfileMenu({userName,myTeam,nearestPin,t,onWithdraw}){
+  const [open,setOpen]=useState(false);
+  const [step,setStep]=useState(0); // 0=main 1=transfer 2=confirm
+  const [newCap,setNewCap]=useState("");
+  const menuRef=useRef(null);
+
+  useEffect(()=>{
+    function close(e){if(menuRef.current&&!menuRef.current.contains(e.target)){setOpen(false);setStep(0);setNewCap("");}}
+    document.addEventListener("mousedown",close);
+    return()=>document.removeEventListener("mousedown",close);
+  },[]);
+
+  const hasClaim=Object.values(nearestPin||{}).some(e=>(e?.history||[]).some(h=>h.teamId===myTeam?.id));
+  const isCap=myTeam?.creator===userName;
+  const others=(myTeam?.members||[]).filter(m=>m!==userName);
+  const aloneInTeam=isCap&&others.length===0;
+
+  function handleRetire(){
+    if(hasClaim)return;
+    if(isCap&&!aloneInTeam){setStep(1);return;}
+    setStep(2);
+  }
+
+  return(
+    <div ref={menuRef} style={{position:"relative"}}>
+      <button onClick={()=>{setOpen(o=>!o);if(open){setStep(0);setNewCap("");}}}
+        style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:8,padding:"2px 0"}}>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:12,color:t.tx,fontWeight:700,lineHeight:1.2,whiteSpace:"nowrap"}}>{userName}</div>
+          {myTeam&&<div style={{fontSize:10,color:t.acc,lineHeight:1.2,whiteSpace:"nowrap"}}>{myTeam.name}</div>}
+        </div>
+        <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${t.acc},${t.acc}88)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:`0 0 0 2px ${t.cardB}`}}>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:900,color:t.bg||"#0a1628"}}>
+            {userName.charAt(0).toUpperCase()}
+          </span>
+        </div>
+      </button>
+      {open&&(
+        <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:t.hdr,border:`1px solid ${t.cardB}`,borderRadius:12,padding:8,minWidth:200,zIndex:200,boxShadow:"0 8px 24px rgba(0,0,0,0.3)"}}>
+          <div style={{padding:"6px 10px 10px",borderBottom:`1px solid ${t.cardB}`,marginBottom:8}}>
+            <div style={{fontSize:13,fontWeight:700,color:t.tx}}>{userName}</div>
+            <div style={{fontSize:11,color:t.tx2}}>{myTeam?`${myTeam.name}${isCap?" · Capitaine":""}` :"Sans équipe"}</div>
+          </div>
+          {hasClaim&&step===0&&(
+            <div style={{padding:"6px 10px",marginBottom:6,background:"rgba(245,158,11,0.08)",borderRadius:8,border:"1px solid rgba(245,158,11,0.2)"}}>
+              <div style={{fontSize:10,color:"#f59e0b",letterSpacing:1}}>📍 Nearest pin actif à ton nom</div>
+              <div style={{fontSize:10,color:t.tx2,marginTop:1}}>Retrait impossible</div>
+            </div>
+          )}
+          {step===1&&(
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:11,color:t.tx2,marginBottom:8}}>Choisis un nouveau capitaine :</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+                {others.map(m=>(
+                  <button key={m} onClick={()=>setNewCap(m)}
+                    style={{padding:"8px 12px",background:newCap===m?t.cardHB:t.cardH,border:`1px solid ${newCap===m?t.acc:t.cardB}`,borderRadius:8,color:t.tx,cursor:"pointer",fontSize:13,fontWeight:newCap===m?700:400,textAlign:"left",fontFamily:"'Barlow Condensed',sans-serif"}}>
+                    {newCap===m?"✓ ":""}{m}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>newCap&&setStep(2)} disabled={!newCap}
+                  style={{flex:1,padding:"8px",background:newCap?t.btn:"transparent",border:`1px solid ${newCap?t.acc:t.cardB}`,borderRadius:8,color:newCap?"#fff":t.tx2,cursor:newCap?"pointer":"default",fontSize:12,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+                  CONTINUER →
+                </button>
+                <button onClick={()=>setStep(0)} style={{padding:"8px 10px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:12}}>✕</button>
+              </div>
+            </div>
+          )}
+          {step===2&&(
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:12,color:t.tx,marginBottom:10,lineHeight:1.5}}>
+                {newCap?<span>Transférer le capitainat à <strong>{newCap}</strong> et te retirer?</span>
+                  :aloneInTeam?<span>Tu es seul dans l'équipe. Elle sera supprimée.</span>
+                  :<span>Te retirer du tournoi?</span>}
+                <div style={{fontSize:10,color:"#f87171",marginTop:4}}>Action irréversible.</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>{setOpen(false);setStep(0);onWithdraw(newCap||null);}}
+                  style={{flex:1,padding:"8px",background:"rgba(239,68,68,0.2)",border:"1px solid rgba(239,68,68,0.4)",borderRadius:8,color:"#f87171",cursor:"pointer",fontSize:12,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+                  CONFIRMER
+                </button>
+                <button onClick={()=>setStep(0)} style={{padding:"8px 10px",background:"none",border:`1px solid ${t.cardB}`,borderRadius:8,color:t.tx2,cursor:"pointer",fontSize:12}}>ANNULER</button>
+              </div>
+            </div>
+          )}
+          {step===0&&(
+            <button onClick={handleRetire} disabled={hasClaim}
+              style={{width:"100%",padding:"9px 10px",background:hasClaim?"transparent":"rgba(239,68,68,0.1)",border:`1px solid ${hasClaim?"transparent":"rgba(239,68,68,0.3)"}`,borderRadius:8,color:hasClaim?t.tx2:"#f87171",cursor:hasClaim?"not-allowed":"pointer",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,textAlign:"left",opacity:hasClaim?0.4:1}}>
+              🚪 SE RETIRER DU TOURNOI
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 function App(){
   const [rawState,setRawState]=useState(null);
@@ -1012,6 +1081,19 @@ function App(){
     else await fbSet(`teams/${team.id}/members`,(team.members||[]).filter(m=>m!==member));
     await fbSet(`users/${member}/deleted`,true);
   }
+  async function withdraw(newCap){
+    if(myTeam){
+      if(newCap){
+        await fbSet(`teams/${myTeam.id}/creator`,newCap);
+        await fbSet(`teams/${myTeam.id}/members`,myTeam.members.filter(m=>m!==userName));
+      } else {
+        await fbRemove(`teams/${myTeam.id}`);
+      }
+    }
+    await fbRemove(`users/${userName}`);
+    localStorage.removeItem("rq-username");
+    setUserName("");
+  }
   async function resetGame(){
     await fbRemove("nearestPin");await fbRemove("messages");
     for(const tm of teams)await fbSet(`teams/${tm.id}/scores`,Array(18).fill(""));
@@ -1032,24 +1114,21 @@ function App(){
     <div style={{minHeight:"100vh",background:t.bg,color:t.tx,fontFamily:"'Barlow',sans-serif",paddingBottom:80,transition:"background 0.3s"}}>
       <ToastContainer toasts={toasts} onDismiss={dismissToast}/>
       {modalTeam&&<ScorecardModal team={modalTeam} onClose={()=>setModalTeam(null)} light={light} nearestPin={nearestPin}/>}
-      <div style={{background:t.hdr,backdropFilter:"blur(12px)",borderBottom:`1px solid ${t.hdrB}`,padding:"12px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{background:t.hdr,backdropFilter:"blur(12px)",borderBottom:`1px solid ${t.hdrB}`,padding:"8px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🦈</span>
           <div>
             <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:900,letterSpacing:2,lineHeight:1,color:t.acc}}>REQUINS OPEN</div>
-            <div style={{fontSize:9,color:t.tx2,letterSpacing:2,marginTop:1}}>v2.6</div>
+            <div style={{fontSize:9,color:t.tx2,letterSpacing:2,marginTop:1}}>v2.8</div>
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:13,color:t.tx,fontWeight:700,lineHeight:1.2}}>{userName}</div>
-            <div style={{fontSize:11,color:myTeam?t.acc:t.tx2,lineHeight:1.2}}>{myTeam?myTeam.name:"Sans équipe"}</div>
-          </div>
           <div style={{width:8,height:8,borderRadius:"50%",background:connected?"#22c55e":"#ef4444",flexShrink:0}}/>
+          <ProfileMenu userName={userName} myTeam={myTeam} nearestPin={nearestPin} t={t} onWithdraw={withdraw}/>
         </div>
       </div>
 
-      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px",animation:"fadeIn 0.3s ease"}}>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"12px 16px",animation:"fadeIn 0.3s ease"}}>
         {view==="admin"&&isAdmin&&<AdminPanel teams={teams} users={users} onResetGame={resetGame} onResetAll={resetAll} onDeleteMember={deleteMember} light={light}/>}
         {view==="board"&&(
           <div>
@@ -1113,21 +1192,36 @@ function App(){
               </div>
             ):(
               <div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                  <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:900,color:t.tx}}>🦈 {scorecardTeam.name}</h2>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:900,color:t.tx}}>🦈 {scorecardTeam.name}</h2>
                   {(()=>{
                     const ranked=[...teams].map(tm=>({...tm,...getStats(tm.scores||[])})).sort((a,b)=>{if(!a.played&&!b.played)return 0;if(!a.played)return 1;if(!b.played)return -1;return a.diff-b.diff;});
                     const myIdx=ranked.findIndex(tm=>tm.id===scorecardTeam.id);
+                    const total=teams.length;
                     const myStats=getStats(scorecardTeam.scores||[]);
-                    if(myIdx===-1||!myStats.played)return React.createElement("span",{style:{fontSize:11,color:t.tx2,letterSpacing:1}},canEdit?"✏️ CAPITAINE":"👀 MEMBRE");
-                    const rank=myIdx+1,diff=ranked[myIdx].diff;
+                    if(myIdx===-1)return<span style={{fontSize:11,color:t.tx2,letterSpacing:1}}>{canEdit?"✏️ CAPITAINE":"👀 MEMBRE"}</span>;
+                    const rank=myIdx+1;
+                    const cumulVal=(scorecardTeam.scores||[]).reduce((acc,s,i)=>{
+                      if(s===""||s==null||s===undefined)return acc;
+                      return acc+(Number(s)-HOLES[i].par);
+                    },0);
+                    const cumulPlayed=(scorecardTeam.scores||[]).filter(s=>s!==""&&s!=null&&s!==undefined).length;
+                    const scoreCol=cumulVal<0?"#22c55e":cumulVal>0?"#f97316":t.tx2;
                     return(
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color:diff<0?"#22c55e":diff>0?"#f97316":t.tx2,lineHeight:1}}>{fmtScore(diff)}</div>
-                          <div style={{fontSize:10,color:t.tx2,letterSpacing:1}}>{myStats.played}/18</div>
+                      <div style={{display:"flex",alignItems:"center",gap:10,background:t.cardH,border:`1px solid ${t.cardB}`,borderRadius:12,padding:"6px 12px"}}>
+                        {cumulPlayed>0&&(
+                          <div style={{textAlign:"center",borderRight:`1px solid ${t.cardB}`,paddingRight:10}}>
+                            <div style={{fontSize:9,color:t.tx2,letterSpacing:1,marginBottom:1}}>SCORE</div>
+                            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color:scoreCol,lineHeight:1}}>{fmtScore(cumulVal)}</div>
+                          </div>
+                        )}
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontSize:9,color:t.tx2,letterSpacing:1,marginBottom:1}}>RANG</div>
+                          <div style={{fontFamily:"'Barlow Condensed',sans-serif",lineHeight:1}}>
+                            <span style={{fontSize:22,fontWeight:900,color:t.acc}}>{rank}</span>
+                            <span style={{fontSize:12,fontWeight:700,color:t.tx2}}>/{total}</span>
+                          </div>
                         </div>
-                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,color:t.acc,lineHeight:1,minWidth:36,textAlign:"center"}}>#{rank}</div>
                       </div>
                     );
                   })()}
